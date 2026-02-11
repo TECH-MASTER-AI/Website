@@ -1,0 +1,49 @@
+.glare-hover {
+  position: relative;
+  width: var(--gh-width);
+  height: var(--gh-height);
+  background: var(--gh-bg);
+  border-radius: var(--gh-br);
+  overflow: hidden;
+  border: 1px solid var(--gh-border);
+  display: inline-block;
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Unified glare effect - matches global system - GPU OPTIMIZED */
+.glare-hover::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    120deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.1) 40%,
+    rgba(255, 255, 255, 0.15) 50%,
+    rgba(255, 255, 255, 0.1) 60%,
+    transparent 100%
+  );
+  transition: transform 0.6s ease-in-out;
+  transform: translateX(0) translateZ(0);
+  pointer-events: none;
+  z-index: 100;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.glare-hover:hover::before {
+  transform: translateX(200%) translateZ(0);
+}
+
+.glare-hover > * {
+  position: relative;
+  z-index: 2;
+  display: inline-block;
+  width: 100%;
+  height: 100%;
+}

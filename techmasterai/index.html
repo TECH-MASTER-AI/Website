@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+    
+    <link rel="icon" type="image/png" href="/tmai-logo.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    
+    <title>TechMasterAI - Master Code. Win Competitions.</title>
+    <meta name="description" content="The premier platform where developers showcase their skills, compete in real-world challenges, and unlock career opportunities." />
+    <meta name="author" content="TechMasterAI" />
+    <meta name="theme-color" content="#0B0F14" />
+
+    <meta property="og:title" content="TechMasterAI - Master Code. Win Competitions." />
+    <meta property="og:description" content="The premier platform where developers showcase their skills, compete in real-world challenges, and unlock career opportunities." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/tmai-logo.png" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@TechMasterAI" />
+    <meta name="twitter:title" content="TechMasterAI - Master Code. Win Competitions." />
+    <meta name="twitter:description" content="The premier platform where developers showcase their skills, compete in real-world challenges, and unlock career opportunities." />
+    
+    <!-- Performance optimizations -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+  </head>
+
+  <body>
+    <script>
+      (function() {
+        var theme = localStorage.getItem('techmasterai_theme');
+        if (theme === 'light' || theme === 'dark' || theme === 'pastel') {
+          document.documentElement.setAttribute('data-theme', theme);
+          if (theme === 'dark') document.documentElement.classList.add('dark');
+          else document.documentElement.classList.remove('dark');
+        } else {
+          document.documentElement.setAttribute('data-theme', 'dark');
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
