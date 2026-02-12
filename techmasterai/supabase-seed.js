@@ -16,22 +16,12 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function seedQuestions() {
-  console.log('🌱 Starting to seed questions to dsa_questions table...');
-  console.log(`📊 Total questions to insert: ${questionsData.length}`);
+  console.log('🌱 Starting to update questions with tags in dsa_questions table...');
+  console.log(`📊 Total questions to update: ${questionsData.length}`);
 
   try {
-    // Delete existing questions
-    console.log('⚠️  Deleting all existing questions...');
-    const { error: deleteError } = await supabase
-      .from('dsa_questions')
-      .delete()
-      .neq('id', 0); // Delete all rows
-
-    if (deleteError) {
-      console.error('❌ Error deleting existing questions:', deleteError);
-    } else {
-      console.log('🗑️  All questions deleted');
-    }
+    // Don't delete - we'll update existing questions
+    console.log('✅ Updating existing questions with tags...');
 
     // Track used slugs to ensure uniqueness
     const usedSlugs = new Set();
@@ -54,43 +44,35 @@ async function seedQuestions() {
       
       return {
         id: index + 1,
-        title: q.title,
         slug: slug,
-        description: q.description,
-        difficulty: q.difficulty,
-        example_1_input: q.examples?.[0]?.input || null,
-        example_1_output: q.examples?.[0]?.output || null,
-        example_2_input: q.examples?.[1]?.input || null,
-        example_2_output: q.examples?.[1]?.output || null,
-        example_3_input: q.examples?.[2]?.input || null,
-        example_3_output: q.examples?.[2]?.output || null,
-        constraints: q.constraints?.join('\n') || null,
-        topics: q.topics?.join(', ') || null,
-        total_examples: q.examples?.length || 0
+        tags: q.tags?.join(', ') || null // Only tags field for update
       };
     });
 
-    // Insert questions in batches
+    // Update questions in batches using UPSERT
     const batchSize = 50;
-    let inserted = 0;
+    let updated = 0;
 
     for (let i = 0; i < transformedData.length; i += batchSize) {
       const batch = transformedData.slice(i, i + batchSize);
       
       const { data, error } = await supabase
         .from('dsa_questions')
-        .insert(batch)
+        .upsert(batch, { 
+          onConflict: 'id',
+          ignoreDuplicates: false 
+        })
         .select();
 
       if (error) {
-        console.error(`❌ Error inserting batch ${i / batchSize + 1}:`, error);
+        console.error(`❌ Error updating batch ${i / batchSize + 1}:`, error);
       } else {
-        inserted += batch.length;
-        console.log(`✅ Inserted batch ${i / batchSize + 1} (${inserted}/${transformedData.length})`);
+        updated += batch.length;
+        console.log(`✅ Updated batch ${i / batchSize + 1} (${updated}/${transformedData.length})`);
       }
     }
 
-    console.log(`\n🎉 Successfully seeded ${inserted} questions!`);
+    console.log(`\n🎉 Successfully updated ${updated} questions with tags!`);
     
     // Verify the data
     const { count, error: countError } = await supabase

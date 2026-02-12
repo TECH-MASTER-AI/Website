@@ -267,7 +267,12 @@ export default function DsaProblems() {
         (status === "unsolved" && currentStatus === "unsolved") ||
         (status === "attempted" && currentStatus === "attempted");
 
-      const matchTag = tags.length === 0 || tags.some(t => p.tags.includes(t));
+      // Tag filtering: if tags are selected, check if problem has ANY of the selected tags
+      const matchTag = tags.length === 0 || tags.some(selectedTag => 
+        p.tags.some(problemTag => 
+          problemTag.toLowerCase().includes(selectedTag.toLowerCase())
+        )
+      );
       
       // Tab filtering
       let matchTab = true;
@@ -276,7 +281,7 @@ export default function DsaProblems() {
       return matchSearch && matchDiff && matchStatus && matchTag && matchTab;
     });
     return list;
-  }, [search, difficulty, status, tags, activeTab, favorites, solvedProblems, problems, recommendedProblems]);
+  }, [search, difficulty, status, tags, activeTab, favorites, solvedProblems, attemptedProblems, problems, recommendedProblems]);
 
   const difficultyColor = (d: Difficulty) =>
     d === "Easy" ? "text-green-400 bg-green-400/10 border-green-400/20" : 
@@ -325,6 +330,33 @@ export default function DsaProblems() {
                     "text-slate-900 dark:text-white"
                 )}>Problems</h1>
                 <p className="text-sm text-muted-foreground">Search your practice problems here and get started.</p>
+                
+                {/* Active Filters Display */}
+                {(tags.length > 0 || difficulty !== "all" || status !== "all") && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {tags.map(tag => (
+                      <span
+                        key={tag}
+                        className={cn(
+                          "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium",
+                          "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20"
+                        )}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                    {difficulty !== "all" && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border border-yellow-500/20">
+                        {difficulty}
+                      </span>
+                    )}
+                    {status !== "all" && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">
+                        {status}
+                      </span>
+                    )}
+                  </div>
+                )}
             </div>
             
             {/* Skill Level Badge */}

@@ -166,7 +166,7 @@ export function DraggableAiPopup({ children, storageKey = 'dsa_ai_popup_pos', on
   return (
     <div
       ref={containerRef}
-      className={`fixed z-50 bg-[#1a1f2e] rounded-2xl shadow-2xl shadow-black/40 border border-white/10 flex flex-col overflow-hidden transition-shadow ${
+      className={`fixed z-50 bg-white dark:bg-[#1a1f2e] rounded-2xl shadow-2xl shadow-black/40 border border-gray-200 dark:border-white/10 flex flex-col overflow-hidden transition-shadow ${
         isDragging ? 'shadow-cyan-500/20' : ''
       }`}
       style={{
@@ -179,26 +179,26 @@ export function DraggableAiPopup({ children, storageKey = 'dsa_ai_popup_pos', on
       {/* Drag Handle Header */}
       <div
         onMouseDown={handleDragStart}
-        className="h-10 flex items-center justify-between px-3 border-b border-white/10 cursor-grab active:cursor-grabbing bg-[#151a29] shrink-0 select-none"
+        className="h-10 flex items-center justify-between px-3 border-b border-gray-200 dark:border-white/10 cursor-grab active:cursor-grabbing bg-white dark:bg-[#151a29] shrink-0 select-none"
       >
         <div className="flex items-center gap-2">
-          <GripHorizontal className="h-4 w-4 text-slate-500" />
-          <span className="text-xs font-semibold text-slate-400">AI Assistant</span>
+          <GripHorizontal className="h-4 w-4 text-gray-400 dark:text-slate-500" />
+          <span className="text-xs font-semibold text-gray-700 dark:text-slate-400">AI Assistant</span>
         </div>
         <div className="flex items-center gap-1">
           <button
             onClick={() => setIsMinimized(!isMinimized)}
-            className="h-6 w-6 rounded flex items-center justify-center hover:bg-white/10 transition-colors"
+            className="h-6 w-6 rounded flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
           >
             {isMinimized ? (
-              <Maximize2 className="h-3 w-3 text-slate-400" />
+              <Maximize2 className="h-3 w-3 text-gray-600 dark:text-slate-400" />
             ) : (
-              <Minimize2 className="h-3 w-3 text-slate-400" />
+              <Minimize2 className="h-3 w-3 text-gray-600 dark:text-slate-400" />
             )}
           </button>
           <button
             onClick={onClose}
-            className="h-6 w-6 rounded flex items-center justify-center hover:bg-red-500/20 transition-colors text-slate-400 hover:text-red-400"
+            className="h-6 w-6 rounded flex items-center justify-center hover:bg-red-500/20 transition-colors text-gray-600 dark:text-slate-400 hover:text-red-400"
           >
             <span className="text-sm font-bold">&times;</span>
           </button>
@@ -216,7 +216,7 @@ export function DraggableAiPopup({ children, storageKey = 'dsa_ai_popup_pos', on
             className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize group"
           >
             <svg
-              className="w-3 h-3 absolute bottom-1 right-1 text-slate-600 group-hover:text-cyan-400 transition-colors"
+              className="w-3 h-3 absolute bottom-1 right-1 text-slate-600 group-hover:text-blue-600 dark:text-cyan-400 transition-colors"
               viewBox="0 0 12 12"
             >
               <path d="M11 1L1 11M11 5L5 11M11 9L9 11" stroke="currentColor" strokeWidth="1.5" fill="none" />
@@ -227,3 +227,9 @@ export function DraggableAiPopup({ children, storageKey = 'dsa_ai_popup_pos', on
     </div>
   );
 }
+
+
+
+
+
+

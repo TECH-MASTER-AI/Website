@@ -400,27 +400,28 @@ export function AstroType({ difficulty: propDifficulty }: AstroTypeProps = {}) {
       // Render
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Background
-      ctx.fillStyle = "#0B0F14";
+      // Background - white for light theme, dark for dark theme
+      const isDark = document.documentElement.classList.contains('dark');
+      ctx.fillStyle = isDark ? "#0B0F14" : "#FFFFFF";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // Play box
-      ctx.strokeStyle = "#00C2FF";
+      ctx.strokeStyle = isDark ? "#00C2FF" : "#3B82F6";
       ctx.lineWidth = 2;
       ctx.shadowBlur = 10;
-      ctx.shadowColor = "#00C2FF";
+      ctx.shadowColor = isDark ? "#00C2FF" : "#3B82F6";
       ctx.strokeRect(playBox.x, playBox.y, playBox.width, playBox.height);
       ctx.shadowBlur = 0;
 
-      // Darken outside area
-      ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+      // Darken/Lighten outside area
+      ctx.fillStyle = isDark ? "rgba(0, 0, 0, 0.5)" : "rgba(0, 0, 0, 0.05)";
       ctx.fillRect(0, 0, canvas.width, playBox.y);
       ctx.fillRect(0, playBox.y, playBox.x, playBox.height);
       ctx.fillRect(playBox.x + playBox.width, playBox.y, canvas.width - playBox.x - playBox.width, playBox.height);
       ctx.fillRect(0, playBox.y + playBox.height, canvas.width, canvas.height - playBox.y - playBox.height);
 
       // Grid
-      ctx.strokeStyle = "rgba(0, 194, 255, 0.1)";
+      ctx.strokeStyle = isDark ? "rgba(0, 194, 255, 0.1)" : "rgba(59, 130, 246, 0.1)";
       ctx.lineWidth = 1;
       const gridSize = 40;
       for (let x = playBox.x; x < playBox.x + playBox.width; x += gridSize) {
@@ -438,7 +439,7 @@ export function AstroType({ difficulty: propDifficulty }: AstroTypeProps = {}) {
 
       // Stars
       starsRef.current.forEach((star) => {
-        ctx.fillStyle = `rgba(255, 255, 255, ${star.opacity})`;
+        ctx.fillStyle = isDark ? `rgba(255, 255, 255, ${star.opacity})` : `rgba(59, 130, 246, ${star.opacity * 0.3})`;
         ctx.fillRect(star.x % canvas.width, star.y % canvas.height, star.size, star.size);
       });
 
@@ -449,14 +450,14 @@ export function AstroType({ difficulty: propDifficulty }: AstroTypeProps = {}) {
         const y = asteroid.y + shake;
 
         // Asteroid body
-        ctx.fillStyle = asteroid.isActive ? "#00C2FF" : "#444";
+        ctx.fillStyle = asteroid.isActive ? (isDark ? "#00C2FF" : "#3B82F6") : (isDark ? "#444" : "#9CA3AF");
         ctx.beginPath();
         ctx.arc(x, y, asteroid.size, 0, Math.PI * 2);
         ctx.fill();
 
         // Cracks
         if (asteroid.crackLevel > 0) {
-          ctx.strokeStyle = "#00C2FF";
+          ctx.strokeStyle = isDark ? "#00C2FF" : "#3B82F6";
           ctx.lineWidth = 2;
           for (let i = 0; i < asteroid.crackLevel; i++) {
             const angle = (Math.PI * 2 * i) / asteroid.word.length;
@@ -471,7 +472,6 @@ export function AstroType({ difficulty: propDifficulty }: AstroTypeProps = {}) {
         }
 
         // Word
-        ctx.fillStyle = "#fff";
         ctx.font = "16px monospace";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -479,9 +479,9 @@ export function AstroType({ difficulty: propDifficulty }: AstroTypeProps = {}) {
         const typedPart = asteroid.word.substring(0, asteroid.progress);
         const remainingPart = asteroid.word.substring(asteroid.progress);
 
-        ctx.fillStyle = "#00C2FF";
+        ctx.fillStyle = isDark ? "#00C2FF" : "#3B82F6";
         ctx.fillText(typedPart, x - (remainingPart.length * 4.5), y);
-        ctx.fillStyle = "#fff";
+        ctx.fillStyle = isDark ? "#fff" : "#000";
         ctx.fillText(remainingPart, x + (typedPart.length * 4.5), y);
       });
 
@@ -490,17 +490,18 @@ export function AstroType({ difficulty: propDifficulty }: AstroTypeProps = {}) {
         const x = shot.x + (shot.targetX - shot.x) * shot.progress;
         const y = shot.y + (shot.targetY - shot.y) * shot.progress;
 
-        ctx.strokeStyle = shot.color;
+        const shotColor = isDark ? shot.color : "#3B82F6";
+        ctx.strokeStyle = shotColor;
         ctx.lineWidth = 3;
         ctx.shadowBlur = 10;
-        ctx.shadowColor = shot.color;
+        ctx.shadowColor = shotColor;
         ctx.beginPath();
         ctx.moveTo(shot.x, shot.y);
         ctx.lineTo(x, y);
         ctx.stroke();
         ctx.shadowBlur = 0;
 
-        ctx.fillStyle = shot.color;
+        ctx.fillStyle = shotColor;
         ctx.beginPath();
         ctx.arc(x, y, 4, 0, Math.PI * 2);
         ctx.fill();
@@ -510,9 +511,10 @@ export function AstroType({ difficulty: propDifficulty }: AstroTypeProps = {}) {
       const playerX = playBox.x + playBox.width / 2;
       const playerY = playBox.y + playBox.height - 40;
 
-      ctx.fillStyle = playerFlashRef.current ? "#FF0000" : "#00C2FF";
+      const playerColor = playerFlashRef.current ? "#FF0000" : (isDark ? "#00C2FF" : "#3B82F6");
+      ctx.fillStyle = playerColor;
       ctx.shadowBlur = 15;
-      ctx.shadowColor = playerFlashRef.current ? "#FF0000" : "#00C2FF";
+      ctx.shadowColor = playerColor;
       ctx.beginPath();
       ctx.moveTo(playerX, playerY - 15);
       ctx.lineTo(playerX - 12, playerY + 10);
@@ -523,7 +525,7 @@ export function AstroType({ difficulty: propDifficulty }: AstroTypeProps = {}) {
 
       // Particles
       particlesRef.current.forEach((p) => {
-        ctx.fillStyle = p.color;
+        ctx.fillStyle = isDark ? p.color : "#3B82F6";
         ctx.globalAlpha = p.life;
         ctx.beginPath();
         ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
@@ -545,26 +547,26 @@ export function AstroType({ difficulty: propDifficulty }: AstroTypeProps = {}) {
   }, [gameState, gameMode, wordsDestroyed, spawnAsteroid, endGame]);
 
   return (
-    <div className="relative w-full h-full min-h-[600px] bg-[#0B0F14] flex flex-col items-center justify-center p-4">
+    <div className="relative w-full h-full min-h-[600px] bg-white dark:bg-[#0B0F14] flex flex-col items-center justify-center p-4">
       <Button
         variant="ghost"
         size="icon"
-        className="absolute top-4 left-4 z-20 text-gray-400 hover:text-[#00C2FF] hover:bg-[#00C2FF]/10"
+        className="absolute top-4 left-4 z-20 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-[#00C2FF] hover:bg-blue-50 dark:hover:bg-[#00C2FF]/10"
         onClick={() => navigate(-1)}
         aria-label="Go back"
       >
         <ArrowLeft className="h-5 w-5" />
       </Button>
       {gameState === "menu" && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-[#0B0F14]/95">
-          <h1 className="text-5xl font-bold text-[#00C2FF] mb-4">AstroType</h1>
-          <p className="text-gray-400 mb-8 text-center max-w-md">
+        <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-white/95 dark:bg-[#0B0F14]/95">
+          <h1 className="text-5xl font-bold text-blue-600 dark:text-[#00C2FF] mb-4">AstroType</h1>
+          <p className="text-gray-700 dark:text-gray-400 mb-8 text-center max-w-md">
             Type words to destroy asteroids. Only the active asteroid (cyan) responds to your input.
           </p>
           <div className="mb-8">
-            <label className="text-gray-400 mb-2 block">Game Mode</label>
+            <label className="text-gray-700 dark:text-gray-400 mb-2 block">Game Mode</label>
             <Select value={gameMode} onValueChange={(v) => setGameMode(v as GameMode)}>
-              <SelectTrigger className="w-[200px] bg-[#1a1f2e] border-[#00C2FF]/30">
+              <SelectTrigger className="w-[200px] bg-gray-50 dark:bg-[#1a1f2e] border-gray-300 dark:border-[#00C2FF]/30">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -576,11 +578,11 @@ export function AstroType({ difficulty: propDifficulty }: AstroTypeProps = {}) {
           </div>
           <Button
             onClick={startGame}
-            className="bg-[#00C2FF] hover:bg-[#00A8DD] text-black font-semibold px-8 py-6 text-lg"
+            className="bg-blue-600 hover:bg-blue-700 dark:bg-[#00C2FF] dark:hover:bg-[#00A8DD] text-white dark:text-black font-semibold px-8 py-6 text-lg"
           >
             Start Game (Press Enter)
           </Button>
-          <div className="mt-8 text-sm text-gray-500 text-center max-w-md">
+          <div className="mt-8 text-sm text-gray-600 dark:text-gray-500 text-center max-w-md">
             <p>• Type the word shown on the active (cyan) asteroid</p>
             <p>• Press ESC to pause</p>
             <p>• Difficulty increases over time</p>
@@ -589,19 +591,19 @@ export function AstroType({ difficulty: propDifficulty }: AstroTypeProps = {}) {
       )}
 
       {gameState === "paused" && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-[#0B0F14]/95">
-          <h2 className="text-4xl font-bold text-[#00C2FF] mb-4">Paused</h2>
-          <p className="text-gray-400 mb-8">Press ESC to resume</p>
+        <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-white/95 dark:bg-[#0B0F14]/95">
+          <h2 className="text-4xl font-bold text-blue-600 dark:text-[#00C2FF] mb-4">Paused</h2>
+          <p className="text-gray-700 dark:text-gray-400 mb-8">Press ESC to resume</p>
           <Button
             onClick={() => setGameState("playing")}
-            className="bg-[#00C2FF] hover:bg-[#00A8DD] text-black font-semibold px-8 py-4"
+            className="bg-blue-600 hover:bg-blue-700 dark:bg-[#00C2FF] dark:hover:bg-[#00A8DD] text-white dark:text-black font-semibold px-8 py-4"
           >
             Resume
           </Button>
           <Button
             onClick={() => setGameState("menu")}
             variant="outline"
-            className="mt-4 border-[#00C2FF]/30 text-[#00C2FF] hover:bg-[#00C2FF]/10"
+            className="mt-4 border-blue-300 dark:border-[#00C2FF]/30 text-blue-600 dark:text-[#00C2FF] hover:bg-blue-50 dark:hover:bg-[#00C2FF]/10"
           >
             Main Menu
           </Button>
@@ -609,38 +611,38 @@ export function AstroType({ difficulty: propDifficulty }: AstroTypeProps = {}) {
       )}
 
       {gameState === "gameover" && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-[#0B0F14]/95">
-          <h2 className="text-4xl font-bold text-[#00C2FF] mb-4">Game Over</h2>
-          <div className="bg-[#1a1f2e] border border-[#00C2FF]/30 rounded-lg p-6 mb-8 min-w-[300px]">
+        <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-white/95 dark:bg-[#0B0F14]/95">
+          <h2 className="text-4xl font-bold text-blue-600 dark:text-[#00C2FF] mb-4">Game Over</h2>
+          <div className="bg-gray-50 dark:bg-[#1a1f2e] border border-gray-300 dark:border-[#00C2FF]/30 rounded-lg p-6 mb-8 min-w-[300px]">
             <div className="grid grid-cols-2 gap-4 text-center">
               <div>
-                <div className="text-gray-400 text-sm">Score</div>
-                <div className="text-2xl font-bold text-[#00C2FF]">{score}</div>
+                <div className="text-gray-600 dark:text-gray-400 text-sm">Score</div>
+                <div className="text-2xl font-bold text-blue-600 dark:text-[#00C2FF]">{score}</div>
               </div>
               <div>
-                <div className="text-gray-400 text-sm">WPM</div>
-                <div className="text-2xl font-bold text-[#00C2FF]">{wpm}</div>
+                <div className="text-gray-600 dark:text-gray-400 text-sm">WPM</div>
+                <div className="text-2xl font-bold text-blue-600 dark:text-[#00C2FF]">{wpm}</div>
               </div>
               <div>
-                <div className="text-gray-400 text-sm">Accuracy</div>
-                <div className="text-2xl font-bold text-[#00C2FF]">{accuracy}%</div>
+                <div className="text-gray-600 dark:text-gray-400 text-sm">Accuracy</div>
+                <div className="text-2xl font-bold text-blue-600 dark:text-[#00C2FF]">{accuracy}%</div>
               </div>
               <div>
-                <div className="text-gray-400 text-sm">Words</div>
-                <div className="text-2xl font-bold text-[#00C2FF]">{wordsDestroyed}</div>
+                <div className="text-gray-600 dark:text-gray-400 text-sm">Words</div>
+                <div className="text-2xl font-bold text-blue-600 dark:text-[#00C2FF]">{wordsDestroyed}</div>
               </div>
             </div>
           </div>
           <Button
             onClick={startGame}
-            className="bg-[#00C2FF] hover:bg-[#00A8DD] text-black font-semibold px-8 py-4 mb-4"
+            className="bg-blue-600 hover:bg-blue-700 dark:bg-[#00C2FF] dark:hover:bg-[#00A8DD] text-white dark:text-black font-semibold px-8 py-4 mb-4"
           >
             Play Again
           </Button>
           <Button
             onClick={() => setGameState("menu")}
             variant="outline"
-            className="border-[#00C2FF]/30 text-[#00C2FF] hover:bg-[#00C2FF]/10"
+            className="border-blue-300 dark:border-[#00C2FF]/30 text-blue-600 dark:text-[#00C2FF] hover:bg-blue-50 dark:hover:bg-[#00C2FF]/10"
           >
             Main Menu
           </Button>
@@ -649,20 +651,20 @@ export function AstroType({ difficulty: propDifficulty }: AstroTypeProps = {}) {
 
       {gameState === "playing" && (
         <div className="absolute top-4 left-14 right-4 flex justify-between items-start z-10 pointer-events-none">
-          <div className="bg-[#1a1f2e]/90 border border-[#00C2FF]/30 rounded-lg p-3">
-            <div className="text-xs text-gray-400 mb-1">Mode</div>
-            <div className="text-sm font-semibold text-[#00C2FF] capitalize">{gameMode}</div>
+          <div className="bg-white/90 dark:bg-[#1a1f2e]/90 border border-gray-300 dark:border-[#00C2FF]/30 rounded-lg p-3 shadow-lg">
+            <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Mode</div>
+            <div className="text-sm font-semibold text-blue-600 dark:text-[#00C2FF] capitalize">{gameMode}</div>
           </div>
-          <div className="bg-[#1a1f2e]/90 border border-[#00C2FF]/30 rounded-lg p-3 text-right">
+          <div className="bg-white/90 dark:bg-[#1a1f2e]/90 border border-gray-300 dark:border-[#00C2FF]/30 rounded-lg p-3 text-right shadow-lg">
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-              <div className="text-gray-400">Score:</div>
-              <div className="text-[#00C2FF] font-semibold">{score}</div>
-              <div className="text-gray-400">WPM:</div>
-              <div className="text-[#00C2FF] font-semibold">{wpm}</div>
-              <div className="text-gray-400">Accuracy:</div>
-              <div className="text-[#00C2FF] font-semibold">{accuracy}%</div>
-              <div className="text-gray-400">Words:</div>
-              <div className="text-[#00C2FF] font-semibold">{wordsDestroyed}</div>
+              <div className="text-gray-600 dark:text-gray-400">Score:</div>
+              <div className="text-blue-600 dark:text-[#00C2FF] font-semibold">{score}</div>
+              <div className="text-gray-600 dark:text-gray-400">WPM:</div>
+              <div className="text-blue-600 dark:text-[#00C2FF] font-semibold">{wpm}</div>
+              <div className="text-gray-600 dark:text-gray-400">Accuracy:</div>
+              <div className="text-blue-600 dark:text-[#00C2FF] font-semibold">{accuracy}%</div>
+              <div className="text-gray-600 dark:text-gray-400">Words:</div>
+              <div className="text-blue-600 dark:text-[#00C2FF] font-semibold">{wordsDestroyed}</div>
             </div>
           </div>
         </div>
@@ -670,22 +672,22 @@ export function AstroType({ difficulty: propDifficulty }: AstroTypeProps = {}) {
 
       {gameState === "playing" && (
         <div className="absolute bottom-4 left-4 right-4 z-10 pointer-events-none">
-          <div className="bg-[#1a1f2e]/90 border border-[#00C2FF]/30 rounded-lg p-3 mb-2">
+          <div className="bg-white/90 dark:bg-[#1a1f2e]/90 border border-gray-300 dark:border-[#00C2FF]/30 rounded-lg p-3 mb-2 shadow-lg">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-gray-400">Health</span>
-              <span className="text-xs text-[#00C2FF] font-semibold">{health}%</span>
+              <span className="text-xs text-gray-600 dark:text-gray-400">Health</span>
+              <span className="text-xs text-blue-600 dark:text-[#00C2FF] font-semibold">{health}%</span>
             </div>
-            <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+            <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-[#00C2FF] to-[#00FFB3] transition-all duration-300"
+                className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 dark:from-[#00C2FF] dark:to-[#00FFB3] transition-all duration-300"
                 style={{ width: `${health}%` }}
               />
             </div>
           </div>
           {currentInput && (
-            <div className="bg-[#1a1f2e]/90 border border-[#00C2FF]/30 rounded-lg p-3 text-center">
-              <div className="text-xs text-gray-400 mb-1">Current Input</div>
-              <div className="text-lg font-mono text-[#00C2FF] font-semibold">{currentInput}</div>
+            <div className="bg-white/90 dark:bg-[#1a1f2e]/90 border border-gray-300 dark:border-[#00C2FF]/30 rounded-lg p-3 text-center shadow-lg">
+              <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Current Input</div>
+              <div className="text-lg font-mono text-blue-600 dark:text-[#00C2FF] font-semibold">{currentInput}</div>
             </div>
           )}
         </div>
@@ -693,8 +695,8 @@ export function AstroType({ difficulty: propDifficulty }: AstroTypeProps = {}) {
 
       <canvas
         ref={canvasRef}
-        className="w-full h-full rounded-lg"
-        style={{ maxHeight: "calc(100vh - 200px)" }}
+        className="w-full h-full rounded-lg bg-white dark:bg-transparent"
+        style={{ maxHeight: "calc(100vh - 200px)", minHeight: "400px" }}
       />
     </div>
   );

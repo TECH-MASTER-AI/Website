@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { 
@@ -15,13 +15,15 @@ import {
   FileText,
   Check,
   Trophy,
-  Home
+  Home,
+  X
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useDsaFilter } from "@/contexts/DsaFilterContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useTheme } from "@/contexts/ThemeContext";
+import { Badge } from "@/components/ui/badge";
 
 interface SidebarSectionProps {
   title: string;
@@ -62,6 +64,25 @@ export function DsaSidebar({ className }: { className?: string }) {
 
   const [isDsaExpanded, setIsDsaExpanded] = useState(true);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [tagSearch, setTagSearch] = useState("");
+
+  // Popular tags list - comprehensive list based on data analysis
+  const allTags = [
+    "Array", "Dynamic Programming", "String", "Hash Table", "Tree",
+    "Graph", "Binary Search", "Two Pointers", "Sorting", "Backtracking",
+    "Greedy", "Stack", "Queue", "Heap", "Linked List",
+    "Bit Manipulation", "Math", "DFS", "BFS", "Sliding Window",
+    "Recursion", "Divide and Conquer", "Matrix", "Binary Tree",
+    "Prefix Sum", "Trie", "Union Find", "Topological Sort"
+  ];
+
+  // Filter tags based on search
+  const filteredTags = useMemo(() => {
+    if (!tagSearch) return allTags;
+    return allTags.filter(tag => 
+      tag.toLowerCase().includes(tagSearch.toLowerCase())
+    );
+  }, [tagSearch]);
 
   const handleDifficultyChange = (val: "Easy" | "Medium" | "Hard") => {
     // Toggle: if already selected, deselect it; otherwise select it
@@ -79,6 +100,18 @@ export function DsaSidebar({ className }: { className?: string }) {
     } else {
       setStatus(val as any);
     }
+  };
+
+  const toggleTag = (tag: string) => {
+    if (tags.includes(tag)) {
+      setTags(tags.filter(t => t !== tag));
+    } else {
+      setTags([...tags, tag]);
+    }
+  };
+
+  const clearAllTags = () => {
+    setTags([]);
   };
 
   const toggleDsaMenu = (e: React.MouseEvent) => {
@@ -255,15 +288,85 @@ export function DsaSidebar({ className }: { className?: string }) {
 
                     {/* Search Tags */}
                     <SidebarSection title="Search Tags">
-                        <div className="relative mt-1 pr-2">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                            <Input 
-                                placeholder="Search Tags" 
-                                className={cn(
-                                    "h-8 pl-8 rounded-lg text-[10px] placeholder:text-muted-foreground/50 focus-visible:ring-1",
-                                    "bg-white dark:bg-[#111625] border-slate-200 dark:border-white/10 focus-visible:ring-cyan-500/50 focus-visible:border-cyan-500/50 text-slate-900 dark:text-white"
-                                )} 
-                            />
+                        <div className="space-y-3">
+                            {/* Search Input */}
+                            <div className="relative mt-1 pr-2">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                                <Input 
+                                    placeholder="Search Tags" 
+                                    value={tagSearch}
+                                    onChange={(e) => setTagSearch(e.target.value)}
+                                    className={cn(
+                                        "h-8 pl-8 rounded-lg text-[10px] placeholder:text-muted-foreground/50 focus-visible:ring-1",
+                                        "bg-white dark:bg-[#111625] border-slate-200 dark:border-white/10 focus-visible:ring-cyan-500/50 focus-visible:border-cyan-500/50 text-slate-900 dark:text-white"
+                                    )} 
+                                />
+                            </div>
+
+                            {/* Selected Tags */}
+                            {tags.length > 0 && (
+                                <div className="pr-2">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                                            Selected ({tags.length})
+                                        </span>
+                                        <button
+                                            onClick={clearAllTags}
+                                            className="text-[10px] text-cyan-600 dark:text-cyan-400 hover:underline"
+                                        >
+                                            Clear All
+                                        </button>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {tags.map(tag => (
+                                            <Badge
+                                                key={tag}
+                                                variant="secondary"
+                                                className={cn(
+                                                    "text-[10px] px-2 py-0.5 cursor-pointer transition-all",
+                                                    "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500/20"
+                                                )}
+                                                onClick={() => toggleTag(tag)}
+                                            >
+                                                {tag}
+                                                <X className="h-2.5 w-2.5 ml-1" />
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Available Tags */}
+                            <div className="pr-2">
+                                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-2">
+                                    {tagSearch ? 'Search Results' : 'Popular Tags'}
+                                </span>
+                                <ScrollArea className="h-48">
+                                    <div className="flex flex-wrap gap-1.5 pr-2">
+                                        {filteredTags.length > 0 ? (
+                                            filteredTags.map(tag => (
+                                                <Badge
+                                                    key={tag}
+                                                    variant="outline"
+                                                    className={cn(
+                                                        "text-[10px] px-2 py-0.5 cursor-pointer transition-all",
+                                                        tags.includes(tag)
+                                                            ? "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/50"
+                                                            : "hover:bg-slate-100 dark:hover:bg-white/5 text-muted-foreground hover:text-slate-900 dark:hover:text-white"
+                                                    )}
+                                                    onClick={() => toggleTag(tag)}
+                                                >
+                                                    {tag}
+                                                </Badge>
+                                            ))
+                                        ) : (
+                                            <p className="text-[10px] text-muted-foreground italic">
+                                                No tags found
+                                            </p>
+                                        )}
+                                    </div>
+                                </ScrollArea>
+                            </div>
                         </div>
                     </SidebarSection>
                 </div>

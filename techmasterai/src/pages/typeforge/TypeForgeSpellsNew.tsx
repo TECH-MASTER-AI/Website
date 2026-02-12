@@ -207,7 +207,7 @@ export default function TypeForgeSpellsNew() {
       </div>
 
       {/* Typing Practice Area */}
-      <div className="flex-1 rounded-xl overflow-hidden border theme-border-primary bg-gradient-to-br from-slate-900/50 to-slate-800/50 backdrop-blur-sm">
+      <div className="flex-1 rounded-xl overflow-hidden border theme-border-primary bg-white dark:bg-black">
         <div className="h-full p-8 overflow-auto relative">
           {/* Text Display */}
           <div 
@@ -223,14 +223,14 @@ export default function TypeForgeSpellsNew() {
                   const isCorrect = typedChar !== undefined ? typedChar === char : null;
                   const isCurrent = globalIndex === input.length;
                   
-                  let className = "text-gray-500";
+                  let className = "text-gray-400 dark:text-gray-500";
                   
                   if (isCurrent) {
                     className += " border-l-2 border-cyan-400 animate-pulse";
                   } else if (isCorrect === true) {
-                    className = "text-white";
+                    className = "text-black dark:text-white";
                   } else if (isCorrect === false) {
-                    className = "text-red-400 bg-red-400/20";
+                    className = "text-red-500 dark:text-red-400 bg-red-400/20";
                   }
                   
                   return (
@@ -245,8 +245,8 @@ export default function TypeForgeSpellsNew() {
                       ${words.slice(0, wordIndex + 1).join(' ').length === input.length 
                         ? "border-l-2 border-cyan-400 animate-pulse" 
                         : input.length > words.slice(0, wordIndex + 1).join(' ').length
-                          ? "text-white"
-                          : "text-gray-500"
+                          ? "text-black dark:text-white"
+                          : "text-gray-400 dark:text-gray-500"
                       }
                     `}
                   >

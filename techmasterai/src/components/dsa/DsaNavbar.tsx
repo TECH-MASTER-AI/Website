@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Code2, List, Trophy, User, Menu, X, LogOut, Swords, Sparkles, Heart, Zap } from "lucide-react";
+import { Code2, List, Trophy, User, Menu, X, LogOut, Swords, Sparkles, Heart, Zap, Sun, Moon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useSupabaseAuth } from "@/contexts/SupabaseAuthContext";
@@ -10,6 +10,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 
 const navLinks = [
@@ -29,7 +31,7 @@ function MessageSquareIcon(props: any) {
 
 export function DsaNavbar() {
   const location = useLocation();
-  const { theme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const { user, signOut } = useSupabaseAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const isPastel = theme === "pastel";
@@ -109,6 +111,40 @@ export function DsaNavbar() {
                     Dashboard
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-white/10" />
+                
+                {/* Theme Selector Section */}
+                <div className="px-2 py-3">
+                  <DropdownMenuLabel className="text-xs text-muted-foreground px-2">Theme</DropdownMenuLabel>
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={() => setTheme('light')}
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+                        theme === 'light'
+                          ? "bg-cyan-500/20 border-2 border-cyan-500 text-white"
+                          : "bg-white/5 border-2 border-transparent hover:border-white/20 text-muted-foreground hover:text-white"
+                      )}
+                    >
+                      <Sun className="h-4 w-4" />
+                      <span>Light</span>
+                    </button>
+                    <button
+                      onClick={() => setTheme('dark')}
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+                        theme === 'dark'
+                          ? "bg-cyan-500/20 border-2 border-cyan-500 text-white"
+                          : "bg-white/5 border-2 border-transparent hover:border-white/20 text-muted-foreground hover:text-white"
+                      )}
+                    >
+                      <Moon className="h-4 w-4" />
+                      <span>Dark</span>
+                    </button>
+                  </div>
+                </div>
+                
+                <DropdownMenuSeparator className="bg-white/10" />
                 <DropdownMenuItem className="focus:bg-white/10 focus:text-white cursor-pointer" onClick={signOut}>
                   <LogOut className="mr-2 h-4 w-4 text-red-400" />
                   <span className="text-red-400">Log out</span>
@@ -159,6 +195,38 @@ export function DsaNavbar() {
               {label}
             </Link>
           ))}
+          
+          {/* Theme Selector in Mobile */}
+          <div className="mt-2 pt-2 border-t border-white/10">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2 px-4">Theme</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setTheme('light')}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-all",
+                  theme === 'light' 
+                    ? "bg-cyan-500/20 text-white border-2 border-cyan-500" 
+                    : "bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-white border-2 border-transparent"
+                )}
+              >
+                <Sun className="h-4 w-4" />
+                Light
+              </button>
+              <button
+                onClick={() => setTheme('dark')}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-all",
+                  theme === 'dark' 
+                    ? "bg-cyan-500/20 text-white border-2 border-cyan-500" 
+                    : "bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-white border-2 border-transparent"
+                )}
+              >
+                <Moon className="h-4 w-4" />
+                Dark
+              </button>
+            </div>
+          </div>
+
           {!user && (
             <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-white/10">
                <Link to="/dsa/login" onClick={() => setMobileOpen(false)}>

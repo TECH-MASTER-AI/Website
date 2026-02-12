@@ -320,7 +320,7 @@ export default function TypeForgeCodeNew() {
       </div>
 
       {/* Code Typing Area */}
-      <div className="flex-1 rounded-xl overflow-hidden border theme-border-primary bg-gradient-to-br from-slate-900/50 to-slate-800/50 backdrop-blur-sm flex">
+      <div className="flex-1 rounded-xl overflow-hidden border theme-border-primary bg-white dark:bg-black flex">
         {/* Failure Overlay */}
         {failed && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-red-900/20 backdrop-blur-sm">
@@ -341,7 +341,7 @@ export default function TypeForgeCodeNew() {
         )}
 
         {/* Line Numbers */}
-        <div className="w-16 bg-slate-900/80 border-r theme-border-primary p-4 font-mono text-sm text-gray-500 select-none overflow-hidden">
+        <div className="w-16 bg-gray-50 dark:bg-slate-900/80 border-r theme-border-primary p-4 font-mono text-sm text-gray-500 select-none overflow-hidden">
           {code.split('\n').map((_, i) => (
             <div 
               key={i} 
@@ -376,9 +376,9 @@ export default function TypeForgeCodeNew() {
               }
               
               if (isCorrect === true) {
-                className = "text-green-400";
+                className = "text-green-500 dark:text-green-400";
               } else if (isCorrect === false) {
-                className = "text-red-400 bg-red-400/20";
+                className = "text-red-500 dark:text-red-400 bg-red-400/20";
               }
               
               return (

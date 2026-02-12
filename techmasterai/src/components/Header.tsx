@@ -232,6 +232,38 @@ const Header = memo(() => {
                     )}
 
                     {/* Theme Selector Section */}
+                    <div className="profile-theme-section mb-6 pb-6 border-b" style={{ borderColor: 'var(--theme-border-secondary)' }}>
+                      <p className="font-body text-xs theme-text-secondary uppercase tracking-wider mb-3">Theme</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setTheme('light');
+                          }}
+                          className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl transition-all duration-200 ${
+                            theme === 'light'
+                              ? 'bg-cyan-500/20 border-2 border-cyan-500'
+                              : 'bg-gray-100 dark:bg-gray-800 border-2 border-transparent hover:border-gray-300 dark:hover:border-gray-600'
+                          }`}
+                        >
+                          <Sun className="w-4 h-4" />
+                          <span className="font-body font-medium text-sm">Light</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setTheme('dark');
+                          }}
+                          className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl transition-all duration-200 ${
+                            theme === 'dark'
+                              ? 'bg-cyan-500/20 border-2 border-cyan-500'
+                              : 'bg-gray-100 dark:bg-gray-800 border-2 border-transparent hover:border-gray-300 dark:hover:border-gray-600'
+                          }`}
+                        >
+                          <Moon className="w-4 h-4" />
+                          <span className="font-body font-medium text-sm">Dark</span>
+                        </button>
+                      </div>
+                    </div>
+
                     {/* Actions Section */}
                     <div className="profile-actions-section space-y-2">
                       {(user || isAdmin) ? (
@@ -343,6 +375,35 @@ const Header = memo(() => {
                   </div>
                 </div>
               )}
+
+              {/* Theme Selector in Mobile */}
+              <div className="mt-4 mb-2">
+                <p className="font-body text-xs theme-text-secondary uppercase tracking-wider mb-3 px-4">Theme</p>
+                <div className="flex gap-2 px-4">
+                  <button
+                    onClick={() => setTheme('light')}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all duration-200 ${
+                      theme === 'light'
+                        ? 'bg-cyan-500/20 border-2 border-cyan-500'
+                        : 'bg-gray-100 dark:bg-gray-800 border-2 border-transparent'
+                    }`}
+                  >
+                    <Sun className="w-4 h-4" />
+                    <span className="font-body font-medium text-sm">Light</span>
+                  </button>
+                  <button
+                    onClick={() => setTheme('dark')}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all duration-200 ${
+                      theme === 'dark'
+                        ? 'bg-cyan-500/20 border-2 border-cyan-500'
+                        : 'bg-gray-100 dark:bg-gray-800 border-2 border-transparent'
+                    }`}
+                  >
+                    <Moon className="w-4 h-4" />
+                    <span className="font-body font-medium text-sm">Dark</span>
+                  </button>
+                </div>
+              </div>
 
               {/* Actions in Mobile */}
               {(user || isAdmin) ? (

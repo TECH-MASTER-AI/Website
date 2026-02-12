@@ -49,6 +49,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useSupabaseAuth } from "@/contexts/SupabaseAuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { recordActivity } from "@/features/dsa/streak/dsaActivityStore";
 import { fetchDsaQuestionById } from "@/features/dsa/api/questions";
 import type { DsaQuestionDetail } from "@/features/dsa/api/questions";
@@ -119,6 +120,7 @@ export default function DsaProblemDetailNew() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { user } = useSupabaseAuth(); // Use unified Supabase auth
+    const { theme } = useTheme(); // Get current theme
     const [problem, setProblem] = useState<DsaQuestionDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [language, setLanguage] = useState("java");
@@ -983,7 +985,7 @@ int main() {
             <div className="h-screen w-full flex items-center justify-center">
                 <div className="text-center space-y-4">
                     <Loader2 className="h-12 w-12 animate-spin text-cyan-500 mx-auto" />
-                    <p className="text-slate-300">Loading problem...</p>
+                    <p className="text-gray-800 dark:text-slate-300">Loading problem...</p>
                 </div>
             </div>
         );
@@ -992,7 +994,7 @@ int main() {
     if (!problem) return <div className="p-10 text-center">Problem not found</div>;
 
     return (
-        <div className="h-screen w-full flex flex-col bg-[#0B0F14] p-4 gap-4 relative">
+        <div className="h-screen w-full flex flex-col bg-white dark:bg-[#0B0F14] p-4 gap-4 relative">
             {/* Top Navigation */}
             <div className="flex items-center justify-end">
                 {focusMode && (
@@ -1012,15 +1014,15 @@ int main() {
                 {!focusMode && layoutMode !== 'code-only' && (
                     <>
                         <div 
-                            className={`flex flex-col bg-[#1a1f2e] rounded-[14px] shadow-lg overflow-hidden transition-all duration-300 ${
+                            className={`flex flex-col bg-white dark:bg-[#1a1f2e] border border-gray-200 dark:border-transparent rounded-[14px] shadow-lg overflow-hidden transition-all duration-300 ${
                                 layoutMode === 'split-vertical' ? 'w-full h-[40%]' : ''
                             }`}
                             style={layoutMode !== 'split-vertical' ? { width: `${problemPanelWidth}%` } : {}}
                         >
                         {/* Header */}
-                        <div className="p-5 border-b border-white/10">
+                        <div className="p-5 border-b border-gray-200 dark:border-white/10">
                             <div className="flex items-start justify-between mb-3">
-                                <h1 className="text-xl font-bold text-white leading-tight flex-1">{problem.title}</h1>
+                                <h1 className="text-xl font-bold text-gray-900 dark:text-white leading-tight flex-1">{problem.title}</h1>
                                 <Badge className={`ml-3 rounded-full px-[10px] py-1 text-xs font-bold ${
                                     problem.difficulty === "Easy" ? "bg-green-500/20 text-green-400" :
                                     problem.difficulty === "Medium" ? "bg-yellow-500/20 text-yellow-400" :
@@ -1031,7 +1033,7 @@ int main() {
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 {problem.tags.map((tag, idx) => (
-                                    <Badge key={idx} variant="secondary" className="bg-white/10 text-slate-300 border-none text-xs">
+                                    <Badge key={idx} variant="secondary" className="bg-white/10 text-gray-800 dark:text-slate-300 border-none text-xs">
                                         {tag}
                                     </Badge>
                                 ))}
@@ -1040,17 +1042,17 @@ int main() {
 
                         {/* Scrollable Content */}
                         <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar">
-                            <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-line">{problem.description}</p>
+                            <p className="text-gray-800 dark:text-slate-300 text-sm leading-relaxed whitespace-pre-line">{problem.description}</p>
 
                             {/* Examples */}
                             {problem.examples.map((example, idx) => (
-                                <div key={idx} className="bg-[#0f1419] rounded-[10px] p-3 shadow-inner">
-                                    <h3 className="text-white font-semibold text-sm mb-2">Example {idx + 1}:</h3>
+                                <div key={idx} className="bg-gray-50 dark:bg-[#0f1419] rounded-[10px] p-3 shadow-inner border border-gray-200 dark:border-transparent">
+                                    <h3 className="text-gray-900 dark:text-white font-semibold text-sm mb-2">Example {idx + 1}:</h3>
                                     <div className="font-mono text-xs space-y-1">
-                                        <div><span className="text-slate-400">Input:</span> <span className="text-slate-200">{example.input}</span></div>
-                                        <div><span className="text-slate-400">Output:</span> <span className="text-slate-200">{example.output}</span></div>
+                                        <div><span className="text-gray-700 dark:text-slate-400">Input:</span> <span className="text-gray-900 dark:text-slate-200">{example.input}</span></div>
+                                        <div><span className="text-gray-700 dark:text-slate-400">Output:</span> <span className="text-gray-900 dark:text-slate-200">{example.output}</span></div>
                                         {example.explanation && (
-                                            <div><span className="text-slate-400">Explanation:</span> <span className="text-slate-200">{example.explanation}</span></div>
+                                            <div><span className="text-gray-700 dark:text-slate-400">Explanation:</span> <span className="text-gray-900 dark:text-slate-200">{example.explanation}</span></div>
                                         )}
                                     </div>
                                 </div>
@@ -1059,8 +1061,8 @@ int main() {
                             {/* Constraints */}
                             {problem.constraints && problem.constraints.length > 0 && (
                                 <div className="mt-4">
-                                    <h3 className="text-white font-semibold text-sm mb-2">Constraints:</h3>
-                                    <ul className="list-disc pl-5 space-y-1 text-slate-300 text-xs">
+                                    <h3 className="text-gray-900 dark:text-white font-semibold text-sm mb-2">Constraints:</h3>
+                                    <ul className="list-disc pl-5 space-y-1 text-gray-800 dark:text-slate-300 text-xs">
                                         {problem.constraints.map((constraint, idx) => (
                                             <li key={idx}>{constraint}</li>
                                         ))}
@@ -1124,11 +1126,11 @@ int main() {
                 >
                     {/* Editor Card */}
                     <div 
-                        className="flex flex-col bg-[#1a1f2e] rounded-[14px] shadow-lg"
+                        className="flex flex-col bg-white dark:bg-[#1a1f2e] border border-gray-200 dark:border-transparent rounded-[14px] shadow-lg"
                         style={{ height: `calc(100% - ${bottomPanelHeight}px - 8px)` }}
                     >
                         {/* Top Toolbar */}
-                        <div className="h-12 flex items-center justify-between px-4 border-b border-white/10 shrink-0">
+                        <div className="h-12 flex items-center justify-between px-4 border-b border-gray-200 dark:border-white/10 shrink-0">
                             <div className="flex items-center gap-3">
                                 <Select value={language} onValueChange={handleLanguageChange}>
                                     <SelectTrigger className="h-8 w-[120px] rounded-full border-white/20 bg-white/5 text-xs font-semibold">
@@ -1138,7 +1140,7 @@ int main() {
                                         {LANGUAGES.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
-                                <span className="text-sm font-semibold text-cyan-400 border-b-2 border-cyan-400 pb-1">Code</span>
+                                <span className="text-sm font-semibold text-blue-600 dark:text-cyan-400 border-b-2 border-cyan-400 pb-1">Code</span>
                                 {timerActive && (
                                     <Badge className={`ml-2 rounded-full px-3 py-1 text-xs font-bold transition-colors duration-300 ${timer.getTimerColorClass()}`}>
                                         ⏱ {timer.getDisplayTime()}
@@ -1154,14 +1156,14 @@ int main() {
                                     className="h-[34px] w-[34px] rounded-full flex items-center justify-center hover:bg-white/10 hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer group"
                                     title="Format Code"
                                 >
-                                    <Wand2 className="h-4 w-4 text-slate-400 group-hover:text-white" />
+                                    <Wand2 className="h-4 w-4 text-gray-900 dark:text-slate-400 group-hover:text-gray-900 dark:text-white" />
                                 </button>
 
                                 {/* Button 2: Timer */}
                                 <button
                                     onClick={() => timerActive ? handleStopTimer() : setShowTimerModal(true)}
                                     className={`h-[34px] w-[34px] rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer group ${
-                                        timerActive ? 'bg-cyan-500/20 shadow-lg shadow-cyan-500/30' : 'hover:bg-white/10'
+                                        timerActive ? 'bg-blue-100 dark:bg-cyan-500/20 shadow-lg shadow-cyan-500/30' : 'hover:bg-white/10'
                                     }`}
                                     title={timerActive ? "Stop Timer" : "Timer / Stopwatch"}
                                 >
@@ -1174,7 +1176,7 @@ int main() {
                                     className="h-[34px] w-[34px] rounded-full flex items-center justify-center hover:bg-white/10 hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer group"
                                     title="Reset Code"
                                 >
-                                    <RotateCcw className="h-4 w-4 text-slate-400 group-hover:text-white" />
+                                    <RotateCcw className="h-4 w-4 text-gray-900 dark:text-slate-400 group-hover:text-gray-900 dark:text-white" />
                                 </button>
 
                                 {/* Button 4: Layout Switcher */}
@@ -1184,10 +1186,10 @@ int main() {
                                         className="h-[34px] w-[34px] rounded-full flex items-center justify-center hover:bg-white/10 hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer group"
                                         title="Change Layout"
                                     >
-                                        <LayoutGrid className="h-4 w-4 text-slate-400 group-hover:text-white" />
+                                        <LayoutGrid className="h-4 w-4 text-gray-900 dark:text-slate-400 group-hover:text-gray-900 dark:text-white" />
                                     </button>
                                     {showLayoutMenu && (
-                                        <div className="absolute right-0 top-12 bg-[#1a1f2e] border border-white/10 rounded-lg shadow-xl p-2 w-52 z-50">
+                                        <div className="absolute right-0 top-12 bg-white dark:bg-[#1a1f2e] border border-gray-200 dark:border-transparent border border-gray-200 dark:border-white/10 rounded-lg shadow-xl p-2 w-52 z-50">
                                             {[
                                                 { mode: 'layout-a' as LayoutMode, label: 'Competitive (Code top, Q + AI below)' },
                                                 { mode: 'layout-b' as LayoutMode, label: 'Advanced (Code right, AI floating popup)' },
@@ -1200,7 +1202,7 @@ int main() {
                                                     key={mode}
                                                     onClick={() => handleLayoutChange(mode)}
                                                     className={`w-full text-left px-3 py-2 rounded text-sm hover:bg-white/10 transition-colors ${
-                                                        layoutMode === mode ? 'text-cyan-400 bg-cyan-500/10' : 'text-slate-300'
+                                                        layoutMode === mode ? 'text-blue-600 dark:text-cyan-400 bg-cyan-500/10' : 'text-gray-800 dark:text-slate-300'
                                                     }`}
                                                 >
                                                     {label}
@@ -1218,7 +1220,7 @@ int main() {
                                     }`}
                                     title="Focus Mode"
                                 >
-                                    <Maximize className={`h-4 w-4 ${focusMode ? 'text-purple-400' : 'text-slate-400 group-hover:text-white'}`} />
+                                    <Maximize className={`h-4 w-4 ${focusMode ? 'text-purple-400' : 'text-gray-900 dark:text-slate-400 group-hover:text-gray-900 dark:text-white'}`} />
                                 </button>
                             </div>
                         </div>
@@ -1231,8 +1233,8 @@ int main() {
                                 value={code}
                                 onChange={handleCodeChange}
                                 onMount={(editor) => setEditorRef(editor)}
-                                theme="vs-dark"
-                                loading={<div className="flex items-center justify-center h-full text-slate-400">
+                                theme={theme === 'dark' ? "vs-dark" : "light"}
+                                loading={<div className="flex items-center justify-center h-full text-gray-900 dark:text-slate-400">
                                     <div className="text-center">
                                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500 mx-auto mb-2"></div>
                                         <p>Loading editor...</p>
@@ -1336,13 +1338,13 @@ int main() {
                         </div>
 
                         {/* Run & Submit Buttons - Sticky at bottom */}
-                        <div className="shrink-0 p-4 border-t border-white/10 flex items-center justify-between bg-[#1a1f2e] sticky bottom-0 z-10">
+                        <div className="shrink-0 p-4 border-t border-gray-200 dark:border-white/10 flex items-center justify-between bg-white dark:bg-[#1a1f2e] border border-gray-200 dark:border-transparent sticky bottom-0 z-10">
                             {/* Left side - Run & Submit */}
                             <div className="flex items-center gap-3">
                                 <Button
                                     onClick={handleRun}
                                     disabled={judgeStatus === 'running'}
-                                    className="rounded-lg px-[18px] py-2 font-semibold text-sm bg-white/10 hover:bg-white/20 text-white border border-white/20 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+                                    className="rounded-lg px-[18px] py-2 font-semibold text-sm bg-white/10 hover:bg-white/20 text-gray-900 dark:text-white border border-white/20 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
                                 >
                                     {judgeStatus === 'running' ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Play className="h-4 w-4 mr-2 fill-current" />}
                                     Run
@@ -1361,7 +1363,7 @@ int main() {
                                 {!focusMode && (
                                     <button
                                         onClick={() => setShowFeedbackModal(true)}
-                                        className="h-[36px] px-3 rounded-lg flex items-center gap-2 bg-white/10 hover:bg-white/15 hover:-translate-y-0.5 hover:shadow-lg active:scale-95 transition-all duration-200 cursor-pointer group text-slate-400 hover:text-white text-sm font-medium"
+                                        className="h-[36px] px-3 rounded-lg flex items-center gap-2 bg-white/10 hover:bg-white/15 hover:-translate-y-0.5 hover:shadow-lg active:scale-95 transition-all duration-200 cursor-pointer group text-gray-900 dark:text-slate-400 hover:text-gray-900 dark:text-white text-sm font-medium"
                                         title="Submit feedback"
                                     >
                                         <MessageSquare className="h-4 w-4" />
@@ -1374,7 +1376,7 @@ int main() {
                                         className="h-[36px] w-[36px] rounded-lg flex items-center justify-center bg-white/10 hover:bg-white/15 hover:-translate-y-0.5 hover:shadow-lg active:scale-95 transition-all duration-200 cursor-pointer group"
                                         title={showAiHelper ? "Hide AI Helper" : "Open AI Helper"}
                                     >
-                                        <Bot className={`h-5 w-5 transition-colors ${showAiHelper ? 'text-cyan-400' : 'text-slate-400 group-hover:text-white'}`} />
+                                        <Bot className={`h-5 w-5 transition-colors ${showAiHelper ? 'text-blue-600 dark:text-cyan-400' : 'text-gray-900 dark:text-slate-400 group-hover:text-gray-900 dark:text-white'}`} />
                                     </button>
                                 )}
                             </div>
@@ -1403,7 +1405,7 @@ int main() {
 
                     {/* Results Panel */}
                     <div 
-                        className="bg-[#1a1f2e] rounded-[14px] shadow-lg overflow-hidden flex flex-col"
+                        className="bg-white dark:bg-[#1a1f2e] border border-gray-200 dark:border-transparent rounded-[14px] shadow-lg overflow-hidden flex flex-col"
                         style={{ 
                             height: `${bottomPanelHeight}px`,
                             minHeight: `${MIN_HEIGHT}px`,
@@ -1411,15 +1413,15 @@ int main() {
                         }}
                     >
                         {/* Top Tab Bar */}
-                        <div className="flex items-center border-b border-white/10 px-2">
+                        <div className="flex items-center border-b border-gray-200 dark:border-white/10 px-2">
                             {/* Tabs */}
                             <div className="flex">
                                 <button
                                     onClick={() => setActiveResultsTab('output')}
                                     className={`px-4 py-2.5 text-xs font-medium transition-colors flex items-center gap-2 ${
                                         activeResultsTab === 'output'
-                                            ? 'text-cyan-400 border-b-2 border-cyan-400'
-                                            : 'text-slate-400 hover:text-white'
+                                            ? 'text-blue-600 dark:text-cyan-400 border-b-2 border-cyan-400'
+                                            : 'text-gray-900 dark:text-slate-400 hover:text-gray-900 dark:text-white'
                                     }`}
                                 >
                                     <FileText className="h-3.5 w-3.5" />
@@ -1429,8 +1431,8 @@ int main() {
                                     onClick={() => setActiveResultsTab('results')}
                                     className={`px-4 py-2.5 text-xs font-medium transition-colors flex items-center gap-2 ${
                                         activeResultsTab === 'results'
-                                            ? 'text-cyan-400 border-b-2 border-cyan-400'
-                                            : 'text-slate-400 hover:text-white'
+                                            ? 'text-blue-600 dark:text-cyan-400 border-b-2 border-cyan-400'
+                                            : 'text-gray-900 dark:text-slate-400 hover:text-gray-900 dark:text-white'
                                     }`}
                                 >
                                     <Activity className="h-3.5 w-3.5" />
@@ -1452,11 +1454,11 @@ int main() {
                                         </span>
                                     </div>
                                 )}
-                                <button className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors">
+                                <button className="flex items-center gap-1.5 text-gray-900 dark:text-slate-400 hover:text-gray-900 dark:text-white transition-colors">
                                     <FileText className="h-3.5 w-3.5" />
                                     <span className="text-xs font-medium">Solutions</span>
                                 </button>
-                                <button className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors">
+                                <button className="flex items-center gap-1.5 text-gray-900 dark:text-slate-400 hover:text-gray-900 dark:text-white transition-colors">
                                     <History className="h-3.5 w-3.5" />
                                     <span className="text-xs font-medium">Submissions</span>
                                 </button>
@@ -1470,7 +1472,7 @@ int main() {
                                 <div className="h-full flex flex-col">
                                     {/* Case Selector */}
                                     {testCases.length > 0 && (
-                                        <div className="flex gap-2 px-4 py-2 border-b border-white/5">
+                                        <div className="flex gap-2 px-4 py-2 border-b border-gray-200 dark:border-white/5">
                                             {testCases.map((tc, idx) => (
                                                 <button
                                                     key={tc.id}
@@ -1478,11 +1480,11 @@ int main() {
                                                     className={`rounded-full px-[14px] py-1.5 text-xs font-medium transition-all duration-200 flex items-center gap-2 ${
                                                         activeCase === idx
                                                             ? tc.userOutput === 'Not run yet'
-                                                                ? 'bg-slate-500/20 text-slate-300 border border-slate-500/30'
+                                                                ? 'bg-slate-500/20 text-gray-800 dark:text-slate-300 border border-slate-500/30'
                                                                 : tc.passed 
                                                                     ? 'bg-green-500/20 text-green-400 border border-green-500/30'
                                                                     : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                                                            : 'bg-transparent border border-white/20 text-slate-300 hover:border-cyan-500/50'
+                                                            : 'bg-transparent border border-white/20 text-gray-800 dark:text-slate-300 hover:border-cyan-500/50'
                                                     }`}
                                                 >
                                                     {tc.userOutput !== 'Not run yet' && (
@@ -1502,36 +1504,36 @@ int main() {
                                             {testCases[activeCase] && (
                                                 <div className="space-y-4">
                                                     <div className="grid grid-cols-2 gap-4">
-                                                        <div className="bg-[#0f1419] rounded-lg p-3">
-                                                            <div className="text-xs text-slate-400 mb-2 flex items-center gap-1">
-                                                                <span className="text-cyan-400">📥</span> Input
+                                                        <div className="bg-gray-50 dark:bg-[#0f1419] rounded-lg p-3 border border-gray-200 dark:border-transparent">
+                                                            <div className="text-xs text-gray-700 dark:text-slate-400 mb-2 flex items-center gap-1 font-semibold">
+                                                                <span className="text-blue-600 dark:text-cyan-400">📥</span> Input
                                                             </div>
-                                                            <div className="text-xs text-slate-200 font-mono whitespace-pre-wrap break-all">
+                                                            <div className="text-xs text-gray-900 dark:text-slate-200 font-mono whitespace-pre-wrap break-all">
                                                                 {testCases[activeCase].input}
                                                             </div>
                                                         </div>
-                                                        <div className="bg-[#0f1419] rounded-lg p-3">
-                                                            <div className="text-xs text-slate-400 mb-2 flex items-center gap-1">
-                                                                <span className="text-yellow-400">📤</span> Expected Output
+                                                        <div className="bg-gray-50 dark:bg-[#0f1419] rounded-lg p-3 border border-gray-200 dark:border-transparent">
+                                                            <div className="text-xs text-gray-700 dark:text-slate-400 mb-2 flex items-center gap-1 font-semibold">
+                                                                <span className="text-yellow-600 dark:text-yellow-400">📤</span> Expected Output
                                                             </div>
-                                                            <div className="text-xs text-slate-200 font-mono whitespace-pre-wrap break-all">
+                                                            <div className="text-xs text-gray-900 dark:text-slate-200 font-mono whitespace-pre-wrap break-all">
                                                                 {testCases[activeCase].expectedOutput}
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <div className="bg-[#0f1419] rounded-lg p-3">
-                                                        <div className="text-xs text-slate-400 mb-2 flex items-center gap-1">
-                                                            <span className="text-purple-400">👤</span> Your Output
+                                                    <div className="bg-gray-50 dark:bg-[#0f1419] rounded-lg p-3 border border-gray-200 dark:border-transparent">
+                                                        <div className="text-xs text-gray-700 dark:text-slate-400 mb-2 flex items-center gap-1 font-semibold">
+                                                            <span className="text-purple-600 dark:text-purple-400">👤</span> Your Output
                                                         </div>
                                                         <div className={`text-xs font-mono whitespace-pre-wrap break-all ${
-                                                            testCases[activeCase].error ? 'text-yellow-400' :
-                                                            testCases[activeCase].userOutput === 'Not run yet' ? 'text-slate-500 italic' :
-                                                            testCases[activeCase].passed ? 'text-green-400' : 'text-red-400'
+                                                            testCases[activeCase].error ? 'text-yellow-600 dark:text-yellow-400' :
+                                                            testCases[activeCase].userOutput === 'Not run yet' ? 'text-gray-500 dark:text-slate-500 italic' :
+                                                            testCases[activeCase].passed ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                                                         }`}>
                                                             {testCases[activeCase].error || testCases[activeCase].userOutput}
                                                         </div>
                                                         {testCases[activeCase].error && (
-                                                            <div className="mt-2 p-2 bg-red-500/10 border border-red-500/20 rounded text-xs text-red-400">
+                                                            <div className="mt-2 p-2 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded text-xs text-red-700 dark:text-red-400">
                                                                 <span className="font-semibold">Error:</span> {testCases[activeCase].error}
                                                             </div>
                                                         )}
@@ -1543,7 +1545,7 @@ int main() {
                                         <div className="flex-1 flex items-center justify-center">
                                             <div className="text-center">
                                                 <Loader2 className="h-12 w-12 text-slate-600 mx-auto mb-3 animate-spin" />
-                                                <p className="text-slate-400 text-sm">Loading test cases...</p>
+                                                <p className="text-gray-900 dark:text-slate-400 text-sm">Loading test cases...</p>
                                             </div>
                                         </div>
                                     )}
@@ -1558,20 +1560,20 @@ int main() {
                                             {/* Main Metrics Cards */}
                                             <div className="grid grid-cols-2 gap-4">
                                                 {/* Runtime Card */}
-                                                <div className="bg-[#0f1419] rounded-xl p-4 border border-white/5">
+                                                <div className="bg-gray-50 dark:bg-[#0f1419] rounded-xl p-4 border border-gray-200 dark:border-white/5">
                                                     <div className="flex items-center justify-between mb-3">
                                                         <div className="flex items-center gap-2">
                                                             <div className="h-8 w-8 rounded-lg bg-cyan-500/10 flex items-center justify-center">
-                                                                <Cpu className="h-4 w-4 text-cyan-400" />
+                                                                <Cpu className="h-4 w-4 text-blue-600 dark:text-cyan-400" />
                                                             </div>
                                                             <div>
-                                                                <div className="text-xs text-slate-400">Runtime</div>
-                                                                <div className="text-lg font-bold text-white">{runMetrics.runtime} <span className="text-xs text-slate-500 font-normal">ms</span></div>
+                                                                <div className="text-xs text-gray-900 dark:text-slate-400">Runtime</div>
+                                                                <div className="text-lg font-bold text-gray-900 dark:text-white">{runMetrics.runtime} <span className="text-xs text-slate-500 font-normal">ms</span></div>
                                                             </div>
                                                         </div>
                                                         {runMetrics.runtimePercentile > 0 && (
                                                             <div className="text-right">
-                                                                <div className="text-xs text-slate-400">Beats</div>
+                                                                <div className="text-xs text-gray-900 dark:text-slate-400">Beats</div>
                                                                 <div className="text-sm font-semibold text-green-400">{runMetrics.runtimePercentile}%</div>
                                                             </div>
                                                         )}
@@ -1587,20 +1589,20 @@ int main() {
                                                 </div>
                                                 
                                                 {/* Memory Card */}
-                                                <div className="bg-[#0f1419] rounded-xl p-4 border border-white/5">
+                                                <div className="bg-gray-50 dark:bg-[#0f1419] rounded-xl p-4 border border-gray-200 dark:border-white/5">
                                                     <div className="flex items-center justify-between mb-3">
                                                         <div className="flex items-center gap-2">
                                                             <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
                                                                 <HardDrive className="h-4 w-4 text-purple-400" />
                                                             </div>
                                                             <div>
-                                                                <div className="text-xs text-slate-400">Memory</div>
-                                                                <div className="text-lg font-bold text-white">{runMetrics.memory} <span className="text-xs text-slate-500 font-normal">MB</span></div>
+                                                                <div className="text-xs text-gray-900 dark:text-slate-400">Memory</div>
+                                                                <div className="text-lg font-bold text-gray-900 dark:text-white">{runMetrics.memory} <span className="text-xs text-slate-500 font-normal">MB</span></div>
                                                             </div>
                                                         </div>
                                                         {runMetrics.memoryPercentile > 0 && (
                                                             <div className="text-right">
-                                                                <div className="text-xs text-slate-400">Beats</div>
+                                                                <div className="text-xs text-gray-900 dark:text-slate-400">Beats</div>
                                                                 <div className="text-sm font-semibold text-green-400">{runMetrics.memoryPercentile}%</div>
                                                             </div>
                                                         )}
@@ -1618,10 +1620,10 @@ int main() {
                                             
                                             {/* Performance Distribution Chart - Hidden for now (needs real data) */}
                                             {false && runMetrics.runtimePercentile > 0 && (
-                                            <div className="bg-[#0f1419] rounded-xl p-4 border border-white/5">
+                                            <div className="bg-gray-50 dark:bg-[#0f1419] rounded-xl p-4 border border-gray-200 dark:border-white/5">
                                                 <div className="flex items-center gap-2 mb-3">
-                                                    <TrendingUp className="h-4 w-4 text-cyan-400" />
-                                                    <span className="text-xs font-medium text-slate-300">Performance Distribution</span>
+                                                    <TrendingUp className="h-4 w-4 text-blue-600 dark:text-cyan-400" />
+                                                    <span className="text-xs font-medium text-gray-800 dark:text-slate-300">Performance Distribution</span>
                                                 </div>
                                                 <ChartContainer
                                                     config={{
@@ -1656,17 +1658,17 @@ int main() {
                                             )}
                                             
                                             {/* Complexity Analysis Card */}
-                                            <div className="bg-[#0f1419] rounded-xl p-4 border border-white/5">
+                                            <div className="bg-gray-50 dark:bg-[#0f1419] rounded-xl p-4 border border-gray-200 dark:border-white/5">
                                                 <div className="flex items-center gap-2 mb-3">
-                                                    <Activity className="h-4 w-4 text-cyan-400" />
-                                                    <span className="text-xs font-medium text-slate-300">Complexity Analysis</span>
+                                                    <Activity className="h-4 w-4 text-blue-600 dark:text-cyan-400" />
+                                                    <span className="text-xs font-medium text-gray-800 dark:text-slate-300">Complexity Analysis</span>
                                                 </div>
                                                 {(() => {
                                                     const complexity = analyzeComplexity(code);
                                                     return (
                                                         <div className="space-y-3">
                                                             <div className="flex items-center justify-between">
-                                                                <span className="text-xs text-slate-400">Estimated Complexity</span>
+                                                                <span className="text-xs text-gray-900 dark:text-slate-400">Estimated Complexity</span>
                                                                 <span className={`text-sm font-bold px-3 py-1 rounded-full border ${getComplexityBadgeClass(complexity.estimatedComplexity)}`}>
                                                                     {complexity.estimatedComplexity}
                                                                 </span>
@@ -1681,8 +1683,8 @@ int main() {
                                                                     ))}
                                                                 </div>
                                                             )}
-                                                            <div className="flex items-center gap-4 text-xs text-slate-500 pt-2 border-t border-white/5">
-                                                                <span className={complexity.hasLoops ? 'text-cyan-400' : ''}>
+                                                            <div className="flex items-center gap-4 text-xs text-slate-500 pt-2 border-t border-gray-200 dark:border-white/5">
+                                                                <span className={complexity.hasLoops ? 'text-blue-600 dark:text-cyan-400' : ''}>
                                                                     {complexity.hasLoops ? '● Loops detected' : '○ No loops'}
                                                                 </span>
                                                                 <span className={complexity.hasRecursion ? 'text-purple-400' : ''}>
@@ -1696,7 +1698,7 @@ int main() {
                                             
                                             {/* Additional Info */}
                                             <div className="flex items-center justify-between text-xs text-slate-500 pt-2">
-                                                <span>Language: <span className="text-slate-300 capitalize">{language}</span></span>
+                                                <span>Language: <span className="text-gray-800 dark:text-slate-300 capitalize">{language}</span></span>
                                                 <span>Executed: {runMetrics.timestamp.toLocaleTimeString()}</span>
                                             </div>
                                         </div>
@@ -1719,7 +1721,7 @@ int main() {
                                                     // No tests run yet
                                                     <>
                                                         <Activity className="h-12 w-12 text-slate-600 mx-auto mb-3" />
-                                                        <p className="text-slate-400 text-sm">No results yet</p>
+                                                        <p className="text-gray-900 dark:text-slate-400 text-sm">No results yet</p>
                                                         <p className="text-slate-500 text-xs">Run or submit code to see metrics</p>
                                                     </>
                                                 )}
@@ -1759,7 +1761,7 @@ int main() {
                             </div>
                         )}
                         <div 
-                            className={`bg-[#1a1f2e] rounded-[14px] shadow-lg overflow-hidden transition-all duration-300 ${layoutMode === 'split-vertical' ? 'w-[30%]' : ''}`}
+                            className={`bg-white dark:bg-[#1a1f2e] border border-gray-200 dark:border-transparent rounded-[14px] shadow-lg overflow-hidden transition-all duration-300 ${layoutMode === 'split-vertical' ? 'w-[30%]' : ''}`}
                             style={layoutMode !== 'split-vertical' ? { width: `${aiPanelWidth}%` } : {}}
                         >
                             <DsaAiHelper
@@ -1787,30 +1789,30 @@ int main() {
 
             {/* Timer / Stopwatch Modal */}
             <Dialog open={showTimerModal} onOpenChange={setShowTimerModal}>
-                <DialogContent className="bg-[#1a1f2e] border-white/10">
+                <DialogContent className="bg-white dark:bg-[#1a1f2e] border border-gray-200 dark:border-transparent border-gray-200 dark:border-white/10">
                     <DialogHeader>
-                        <DialogTitle className="text-white">Timer & Stopwatch</DialogTitle>
-                        <DialogDescription className="text-slate-400">
+                        <DialogTitle className="text-gray-900 dark:text-white">Timer & Stopwatch</DialogTitle>
+                        <DialogDescription className="text-gray-900 dark:text-slate-400">
                             Count down (timer) or count up (stopwatch). Timer runs while you code; when time ends you get a warning only.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
-                        <div className="flex items-center gap-2 text-slate-300 text-sm font-medium">⏳ Count-down timer</div>
+                        <div className="flex items-center gap-2 text-gray-800 dark:text-slate-300 text-sm font-medium">⏳ Count-down timer</div>
                         <div className="grid grid-cols-2 gap-3">
                             {[15, 30, 45, 60].map((minutes) => (
                                 <Button
                                     key={minutes}
                                     onClick={() => handleStartTimer(minutes)}
-                                    className="h-14 text-base font-semibold bg-white/10 hover:bg-cyan-500/20 hover:text-cyan-400 border border-white/20 hover:border-cyan-500/50 transition-all"
+                                    className="h-14 text-base font-semibold bg-white/10 hover:bg-blue-100 dark:bg-cyan-500/20 hover:text-blue-600 dark:text-cyan-400 border border-white/20 hover:border-cyan-500/50 transition-all"
                                 >
                                     {minutes} min
                                 </Button>
                             ))}
                         </div>
-                        <div className="flex items-center gap-2 text-slate-300 text-sm font-medium pt-2">⏱ Stopwatch (count-up)</div>
+                        <div className="flex items-center gap-2 text-gray-800 dark:text-slate-300 text-sm font-medium pt-2">⏱ Stopwatch (count-up)</div>
                         <Button
                             onClick={handleStartStopwatch}
-                            className="w-full h-14 text-base font-semibold bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/50 transition-all"
+                            className="w-full h-14 text-base font-semibold bg-blue-100 dark:bg-cyan-500/20 hover:bg-cyan-500/30 text-blue-600 dark:text-cyan-400 border border-cyan-500/50 transition-all"
                         >
                             Start Stopwatch
                         </Button>
@@ -1822,13 +1824,13 @@ int main() {
 
             {/* Reset Confirmation Modal */}
             <Dialog open={showResetModal} onOpenChange={setShowResetModal}>
-                <DialogContent className="bg-[#1a1f2e] border-white/10">
+                <DialogContent className="bg-white dark:bg-[#1a1f2e] border border-gray-200 dark:border-transparent border-gray-200 dark:border-white/10">
                     <DialogHeader>
-                        <DialogTitle className="text-white flex items-center gap-2">
+                        <DialogTitle className="text-gray-900 dark:text-white flex items-center gap-2">
                             <AlertCircle className="h-5 w-5 text-yellow-500" />
                             Reset to Default Boilerplate?
                         </DialogTitle>
-                        <DialogDescription className="text-slate-400">
+                        <DialogDescription className="text-gray-900 dark:text-slate-400">
                             This will erase your current code and restore boilerplate. Continue?
                         </DialogDescription>
                     </DialogHeader>
@@ -1836,13 +1838,13 @@ int main() {
                         <Button
                             onClick={() => setShowResetModal(false)}
                             variant="outline"
-                            className="bg-transparent border-white/20 text-slate-300 hover:bg-white/10"
+                            className="bg-transparent border-white/20 text-gray-800 dark:text-slate-300 hover:bg-white/10"
                         >
                             Cancel
                         </Button>
                         <Button
                             onClick={handleResetCode}
-                            className="bg-red-500 hover:bg-red-600 text-white"
+                            className="bg-red-500 hover:bg-red-600 text-gray-900 dark:text-white"
                         >
                             Reset Code
                         </Button>
@@ -1883,3 +1885,13 @@ int main() {
         </div>
     );
 }
+
+
+
+
+
+
+
+
+
+

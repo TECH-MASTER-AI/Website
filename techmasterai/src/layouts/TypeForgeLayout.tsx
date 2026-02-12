@@ -1,6 +1,6 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { TypeForgeSidebar } from "@/components/typeforge/TypeForgeSidebar";
-import { ChevronLeft, Bell, User, LogOut, Menu, X } from "lucide-react";
+import { ChevronLeft, Bell, User, LogOut, Menu, X, Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -21,7 +21,7 @@ import {
 export default function TypeForgeLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { theme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const { user, signOut } = useSupabaseAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
@@ -201,6 +201,40 @@ export default function TypeForgeLayout() {
                                     <User className="h-4 w-4" />
                                     <span>View Profile</span>
                                 </button>
+                            </div>
+
+                            {/* Theme Selector */}
+                            <div className={cn(
+                                "border-t py-3 px-4",
+                                "border-slate-200 dark:border-white/10"
+                            )}>
+                                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Theme</p>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setTheme('light')}
+                                        className={cn(
+                                            "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+                                            theme === 'light'
+                                                ? "bg-cyan-500/20 border-2 border-cyan-500 text-cyan-600 dark:text-cyan-400"
+                                                : "bg-slate-100 dark:bg-gray-800 border-2 border-transparent hover:border-slate-300 dark:hover:border-gray-600 text-slate-700 dark:text-slate-300"
+                                        )}
+                                    >
+                                        <Sun className="h-4 w-4" />
+                                        <span>Light</span>
+                                    </button>
+                                    <button
+                                        onClick={() => setTheme('dark')}
+                                        className={cn(
+                                            "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+                                            theme === 'dark'
+                                                ? "bg-cyan-500/20 border-2 border-cyan-500 text-cyan-600 dark:text-cyan-400"
+                                                : "bg-slate-100 dark:bg-gray-800 border-2 border-transparent hover:border-slate-300 dark:hover:border-gray-600 text-slate-700 dark:text-slate-300"
+                                        )}
+                                    >
+                                        <Moon className="h-4 w-4" />
+                                        <span>Dark</span>
+                                    </button>
+                                </div>
                             </div>
 
                             <div className={cn(

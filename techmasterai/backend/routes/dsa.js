@@ -53,7 +53,7 @@ router.get('/questions', async (req, res) => {
     console.log('🔵 [DSA] Querying Supabase dsa_questions table...');
     const { data, error } = await supabase
       .from('dsa_questions')
-      .select('id, slug, title, difficulty, topics')
+      .select('id, slug, title, difficulty, topics, tags')
       .order('id', { ascending: true });
 
     if (error) {
@@ -64,13 +64,33 @@ router.get('/questions', async (req, res) => {
     console.log(`✅ [DSA] Successfully fetched ${data?.length || 0} questions`);
 
     // Transform to match expected format
-    const items = data.map(q => ({
-      id: q.slug,
-      title: q.title,
-      difficulty: q.difficulty || 'Medium',
-      acceptance: 0, // Not in schema
-      tags: q.topics ? (typeof q.topics === 'string' ? [q.topics] : []) : []
-    }));
+    const items = data.map(q => {
+      // Parse tags - can be string (comma-separated) or already an array
+      let tags = [];
+      if (q.tags) {
+        if (typeof q.tags === 'string') {
+          tags = q.tags.split(',').map(t => t.trim()).filter(Boolean);
+        } else if (Array.isArray(q.tags)) {
+          tags = q.tags;
+        }
+      }
+      // Fallback to topics if tags not available
+      if (tags.length === 0 && q.topics) {
+        if (typeof q.topics === 'string') {
+          tags = q.topics.split(',').map(t => t.trim()).filter(Boolean);
+        } else if (Array.isArray(q.topics)) {
+          tags = q.topics;
+        }
+      }
+      
+      return {
+        id: q.slug,
+        title: q.title,
+        difficulty: q.difficulty || 'Medium',
+        acceptance: 0, // Not in schema
+        tags: tags
+      };
+    });
 
     res.json({ items });
   } catch (error) {
@@ -107,7 +127,26 @@ router.get('/questions/:id', async (req, res) => {
       title: data.title,
       difficulty: data.difficulty || 'Medium',
       acceptance: 0,
-      tags: data.topics ? (typeof data.topics === 'string' ? [data.topics] : []) : [],
+      tags: (() => {
+        // Parse tags - can be string (comma-separated) or already an array
+        let tags = [];
+        if (data.tags) {
+          if (typeof data.tags === 'string') {
+            tags = data.tags.split(',').map(t => t.trim()).filter(Boolean);
+          } else if (Array.isArray(data.tags)) {
+            tags = data.tags;
+          }
+        }
+        // Fallback to topics if tags not available
+        if (tags.length === 0 && data.topics) {
+          if (typeof data.topics === 'string') {
+            tags = data.topics.split(',').map(t => t.trim()).filter(Boolean);
+          } else if (Array.isArray(data.topics)) {
+            tags = data.topics;
+          }
+        }
+        return tags;
+      })(),
       description: data.description || '',
       examples: [
         data.example_1_input && data.example_1_output ? {

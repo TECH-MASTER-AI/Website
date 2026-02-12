@@ -314,29 +314,29 @@ export function ProblemFeedback({ problemSlug }: ProblemFeedbackProps) {
     // Render single comment
     const renderComment = (comment: Comment, isReply = false) => (
         <div key={comment.id} className={`${isReply ? 'ml-12 mt-3' : 'mb-4'}`}>
-            <div className="bg-[#1a1f2e] rounded-xl p-4 border border-white/10">
+            <div className="bg-white dark:bg-[#1a1f2e] rounded-xl p-4 border border-gray-200 dark:border-white/10">
                 {/* Comment Header */}
                 <div className="flex items-start gap-3 mb-3">
                     <Avatar className="h-8 w-8">
                         <AvatarImage src={comment.user_avatar} />
-                        <AvatarFallback className="bg-cyan-500/20 text-cyan-400">
+                        <AvatarFallback className="bg-cyan-500/20 text-blue-600 dark:text-cyan-400">
                             <User className="h-4 w-4" />
                         </AvatarFallback>
                     </Avatar>
                     
                     <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                            <span className="font-semibold text-white text-sm">
+                            <span className="font-semibold text-gray-900 dark:text-white text-sm">
                                 {comment.username}
                             </span>
-                            <span className="text-xs text-slate-400 flex items-center gap-1">
+                            <span className="text-xs text-gray-600 dark:text-slate-400 flex items-center gap-1">
                                 <Clock className="h-3 w-3" />
                                 {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
                             </span>
                         </div>
                         
                         {/* Comment Content */}
-                        <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">
+                        <p className="text-gray-800 dark:text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">
                             {comment.content}
                         </p>
                     </div>
@@ -348,8 +348,8 @@ export function ProblemFeedback({ problemSlug }: ProblemFeedbackProps) {
                         onClick={() => handleToggleLike(comment.id, comment.isLiked || false)}
                         className={`flex items-center gap-1.5 text-xs transition-colors ${
                             comment.isLiked 
-                                ? 'text-cyan-400' 
-                                : 'text-slate-400 hover:text-cyan-400'
+                                ? 'text-blue-600 dark:text-cyan-400' 
+                                : 'text-gray-600 dark:text-slate-400 hover:text-blue-600 dark:text-cyan-400'
                         }`}
                     >
                         <ThumbsUp className={`h-3.5 w-3.5 ${comment.isLiked ? 'fill-current' : ''}`} />
@@ -359,7 +359,7 @@ export function ProblemFeedback({ problemSlug }: ProblemFeedbackProps) {
                     {!isReply && (
                         <button
                             onClick={() => setReplyTo(replyTo === comment.id ? null : comment.id)}
-                            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-cyan-400 transition-colors"
+                            className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-slate-400 hover:text-blue-600 dark:text-cyan-400 transition-colors"
                         >
                             <Reply className="h-3.5 w-3.5" />
                             <span>Reply</span>
@@ -374,7 +374,7 @@ export function ProblemFeedback({ problemSlug }: ProblemFeedbackProps) {
                             value={replyContent}
                             onChange={(e) => setReplyContent(e.target.value)}
                             placeholder="Write a reply..."
-                            className="min-h-[80px] bg-[#0B0F19] border-white/20 text-white resize-none"
+                            className="min-h-[80px] bg-gray-50 dark:bg-[#0B0F19] border-gray-300 dark:border-white/20 text-gray-900 dark:text-white resize-none"
                         />
                         <div className="flex gap-2 mt-2">
                             <Button
@@ -392,7 +392,7 @@ export function ProblemFeedback({ problemSlug }: ProblemFeedbackProps) {
                                     setReplyTo(null);
                                     setReplyContent('');
                                 }}
-                                className="border-white/20"
+                                className="border-gray-300 dark:border-white/20"
                             >
                                 Cancel
                             </Button>
@@ -411,20 +411,20 @@ export function ProblemFeedback({ problemSlug }: ProblemFeedbackProps) {
     );
 
     return (
-        <div className="flex flex-col bg-transparent mt-6 pt-6 border-t border-white/10 problem-feedback">
+        <div className="flex flex-col bg-transparent mt-6 pt-6 border-t border-gray-200 dark:border-white/10 problem-feedback">
             {/* Header */}
             <div className="shrink-0 mb-4">
                 <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                        <MessageSquare className="h-5 w-5 text-cyan-400" />
-                        <h3 className="text-lg font-semibold text-white">
+                        <MessageSquare className="h-5 w-5 text-blue-600 dark:text-cyan-400" />
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                             Feedback
                         </h3>
-                        <Badge variant="secondary" className="bg-cyan-500/20 text-cyan-400">
+                        <Badge variant="secondary" className="bg-cyan-500/20 text-blue-600 dark:text-cyan-400">
                             {comments.length}
                         </Badge>
                         {hasNewComments && (
-                            <Badge className="bg-green-500 text-white animate-pulse">
+                            <Badge className="bg-green-500 text-gray-900 dark:text-white animate-pulse">
                                 New
                             </Badge>
                         )}
@@ -437,7 +437,7 @@ export function ProblemFeedback({ problemSlug }: ProblemFeedbackProps) {
                             className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
                                 sortBy === 'newest'
                                     ? 'bg-cyan-500 text-black'
-                                    : 'bg-white/10 text-slate-400 hover:bg-white/20'
+                                    : 'bg-white/10 text-gray-600 dark:text-slate-400 hover:bg-white/20'
                             }`}
                         >
                             <Clock className="h-3 w-3 inline mr-1" />
@@ -448,7 +448,7 @@ export function ProblemFeedback({ problemSlug }: ProblemFeedbackProps) {
                             className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
                                 sortBy === 'popular'
                                     ? 'bg-cyan-500 text-black'
-                                    : 'bg-white/10 text-slate-400 hover:bg-white/20'
+                                    : 'bg-white/10 text-gray-600 dark:text-slate-400 hover:bg-white/20'
                             }`}
                         >
                             <TrendingUp className="h-3 w-3 inline mr-1" />
@@ -464,7 +464,7 @@ export function ProblemFeedback({ problemSlug }: ProblemFeedbackProps) {
                         onChange={(e) => setNewComment(e.target.value)}
                         placeholder={currentUser ? "Share your feedback or ask a question..." : "Login to comment"}
                         disabled={!currentUser}
-                        className="min-h-[100px] bg-[#1a1f2e] border-white/20 text-white placeholder:text-slate-500 resize-none"
+                        className="min-h-[100px] bg-white dark:bg-[#1a1f2e] border-gray-300 dark:border-white/20 text-gray-900 dark:text-white placeholder:text-slate-500 resize-none"
                     />
                     <div className="flex justify-end">
                         <Button
@@ -487,12 +487,12 @@ export function ProblemFeedback({ problemSlug }: ProblemFeedbackProps) {
             <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
                 {loading ? (
                     <div className="flex items-center justify-center py-12">
-                        <Loader2 className="h-8 w-8 animate-spin text-cyan-400" />
+                        <Loader2 className="h-8 w-8 animate-spin text-blue-600 dark:text-cyan-400" />
                     </div>
                 ) : comments.length === 0 ? (
                     <div className="text-center py-12">
                         <MessageSquare className="h-12 w-12 text-slate-600 mx-auto mb-3" />
-                        <p className="text-slate-400 text-sm">No feedback yet</p>
+                        <p className="text-gray-600 dark:text-slate-400 text-sm">No feedback yet</p>
                         <p className="text-slate-500 text-xs mt-1">Be the first to share your thoughts!</p>
                     </div>
                 ) : (
@@ -504,3 +504,11 @@ export function ProblemFeedback({ problemSlug }: ProblemFeedbackProps) {
         </div>
     );
 }
+
+
+
+
+
+
+
+
