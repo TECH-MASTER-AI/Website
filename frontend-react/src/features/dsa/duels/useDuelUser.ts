@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSupabaseAuth } from "@/contexts/SupabaseAuthContext";
+import { useDsaAuth } from "@/features/dsa/auth/DsaAuthContext";
 import { getProfilePhoto, getProfileGender } from "@/features/dsa/profile/dsaProfileStore";
 
 const MAIN_USER_KEY = "techmasterai_user";
@@ -15,24 +15,42 @@ export interface DuelUser {
 }
 
 /**
- * Returns the current user for 1v1 duels using unified Supabase auth.
+ * Returns the current user for 1v1 duels: DSA login if present, otherwise main site login (techmasterai_user).
+ * So if the user is already logged in on the main website, they are treated as logged in for duels too.
  */
 export function useDuelUser(): DuelUser | null {
-  const { user } = useSupabaseAuth();
+  const { user: dsaUser, firebaseUser } = useDsaAuth();
+  const [mainUser, setMainUser] = useState<{ name: string; email: string } | null>(null);
 
-  const photo = getProfilePhoto();
+  const readMainUser = () => {
+    const raw = localStorage.getItem(MAIN_USER_KEY);
+    if (!raw) {
+      setMainUser(null);
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw) as { name?: string; email?: string };
+      if (parsed?.email)
+        setMainUser({ name: parsed.name ?? parsed.email ?? "Player", email: parsed.email });
+      else setMainUser(null);
+    } catch {
+      setMainUser(null);
+    }
+  };
+
+  useEffect(() => {
+    readMainUser();
+    window.addEventListener("storage", readMainUser);
+    return () => window.removeEventListener("storage", readMainUser);
+  }, []);
+
+  const photo =
+    (dsaUser && "profile_photo_url" in dsaUser && dsaUser.profile_photo_url) ||
+    getProfilePhoto() ||
+    firebaseUser?.photoURL ||
+    undefined;
   const gender = getProfileGender();
-  
-  if (user) {
-    const username = user.user_metadata?.username || user.email?.split('@')[0] || 'Player';
-    return { 
-      id: user.id, 
-      username, 
-      email: user.email || '', 
-      photo, 
-      gender 
-    };
-  }
-  
+  if (dsaUser) return { id: dsaUser.id, username: dsaUser.username, email: dsaUser.email, photo, gender };
+  if (mainUser) return { id: mainUser.email, username: mainUser.name, email: mainUser.email, photo, gender };
   return null;
 }

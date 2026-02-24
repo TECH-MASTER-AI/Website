@@ -3,9 +3,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, Outlet } from "react-router-dom";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import { SupabaseAuthProvider } from "./contexts/SupabaseAuthContext";
+import { DsaAuthProvider } from "./features/dsa/auth/DsaAuthContext";
 import { DsaLayout } from "./layouts/DsaLayout";
 import Index from "./pages/Index";
 
@@ -21,20 +21,6 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const ChatBot = lazy(() => import("./components/ChatBot"));
 const ComingSoon = lazy(() => import("./pages/ComingSoon"));
 
-// Static Pages - Product
-const Features = lazy(() => import("./pages/static/Features"));
-
-// Static Pages - Company
-const About = lazy(() => import("./pages/static/About"));
-const Careers = lazy(() => import("./pages/static/Careers"));
-const Contact = lazy(() => import("./pages/static/Contact"));
-
-// Static Pages - Legal
-const Privacy = lazy(() => import("./pages/static/Privacy"));
-const Terms = lazy(() => import("./pages/static/Terms"));
-const Security = lazy(() => import("./pages/static/Security"));
-const Cookies = lazy(() => import("./pages/static/Cookies"));
-
 // DSA Practice section
 const DsaLogin = lazy(() => import("./pages/dsa/DsaLogin"));
 const DsaRegister = lazy(() => import("./pages/dsa/DsaRegister"));
@@ -49,12 +35,11 @@ const DsaDuelRoom = lazy(() => import("./pages/dsa/DsaDuelRoom"));
 const DsaSoloChallenge = lazy(() => import("./pages/dsa/DsaSoloChallenge"));
 const DsaDailyChallenge = lazy(() => import("./pages/dsa/DsaDailyChallenge"));
 const DsaCalendar = lazy(() => import("./pages/dsa/DsaCalendar"));
-const DsaNotes = lazy(() => import("./pages/dsa/DsaNotes"));
 
 // TypeForge
 const TypeForgeLayout = lazy(() => import("./layouts/TypeForgeLayout"));
-const TypeForgeCode = lazy(() => import("./pages/typeforge/TypeForgeCodeNew"));
-const TypeForgeSpells = lazy(() => import("./pages/typeforge/TypeForgeSpellsNew"));
+const TypeForgeCode = lazy(() => import("./pages/typeforge/TypeForgeCode"));
+const TypeForgeSpells = lazy(() => import("./pages/typeforge/TypeForgeSpells"));
 const TypeForgeFun = lazy(() => import("./pages/typeforge/TypeForgeFun"));
 const TypeForgeLiveCoding = lazy(() => import("./pages/typeforge/TypeForgeLiveCoding"));
 
@@ -86,9 +71,8 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
-          <SupabaseAuthProvider>
-            <Suspense fallback={
+        <BrowserRouter>
+          <Suspense fallback={
             <div className="min-h-screen bg-background flex items-center justify-center">
               <div className="flex flex-col items-center gap-3 text-muted-foreground">
                 <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -106,64 +90,53 @@ const App = () => (
               <Route path="/typing-test" element={<TypingTest />} />
               <Route path="/astrotype" element={<AstroTypePage />} />
 
-              {/* Static Pages - Product */}
-              <Route path="/features" element={<Features />} />
-
-              {/* Static Pages - Company */}
-              <Route path="/about" element={<About />} />
-              <Route path="/careers" element={<Careers />} />
-              <Route path="/contact" element={<Contact />} />
-
-              {/* Static Pages - Legal */}
-              <Route path="/privacy" element={<Privacy />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="/security" element={<Security />} />
-              <Route path="/cookies" element={<Cookies />} />
-
               {/* TypeForge */}
               <Route path="/typeforge" element={<TypeForgeLayout />}>
-                <Route index element={<Navigate to="/typeforge/spells" replace />} />
+                <Route index element={<Navigate to="/typeforge/code" replace />} />
                 <Route path="code" element={<TypeForgeCode />} />
                 <Route path="spells" element={<TypeForgeSpells />} />
-                <Route path="astrotypes" element={<AstroTypePage />} />
+                <Route path="fun" element={<TypeForgeFun />} />
+                <Route path="live-coding" element={<TypeForgeLiveCoding />} />
               </Route>
-
-              {/* Live Coding - Separate from TypeForge */}
-              <Route path="/livecoding" element={<TypeForgeLiveCoding />} />
 
               {/* DSA Practice section */}
               <Route
                 path="/dsa"
-                element={<DsaLayout />}
+                element={
+                  <DsaAuthProvider>
+                    <DsaLayout />
+                  </DsaAuthProvider>
+                }
               >
-                <Route index element={<Navigate to="/dsa/dashboard" replace />} />
+                <Route index element={<Navigate to="/dsa/problems" replace />} />
                 <Route path="login" element={<DsaLogin />} />
                 <Route path="register" element={<DsaRegister />} />
                 <Route path="dashboard" element={<DsaDashboard />} />
                 <Route path="problems" element={<DsaProblems />} />
                 <Route path="problem/:id" element={<DsaProblemDetail />} />
                 <Route path="submissions" element={<DsaSubmissions />} />
-                <Route path="duels" element={<DsaDuelsLobby />} />
-                <Route path="duels/room/:roomId" element={<DsaDuelRoom />} />
-                <Route path="duels/solo" element={<DsaSoloChallenge />} />
-                <Route path="duels/daily" element={<DsaDailyChallenge />} />
+                {/* Shortcut redirects */}
+                <Route path="solo" element={<Navigate to="/dsa/duels/solo" replace />} />
+                <Route path="daily" element={<Navigate to="/dsa/duels/daily" replace />} />
+                {/* Duels: nested so /dsa/duels, /dsa/duels/solo, /dsa/duels/daily, /dsa/duels/room/:id work */}
+                <Route path="duels" element={<Outlet />}>
+                  <Route index element={<DsaDuelsLobby />} />
+                  <Route path="solo" element={<DsaSoloChallenge />} />
+                  <Route path="daily" element={<DsaDailyChallenge />} />
+                  <Route path="room/:roomId" element={<DsaDuelRoom />} />
+                </Route>
                 <Route path="leaderboard" element={<DsaLeaderboard />} />
                 <Route path="profile" element={<DsaProfile />} />
                 <Route path="live" element={<ComingSoon />} />
                 <Route path="contest" element={<ComingSoon />} />
                 <Route path="discuss" element={<ComingSoon />} />
                 <Route path="calendar" element={<DsaCalendar />} />
-                <Route path="notes" element={<DsaNotes />} />
               </Route>
-
-              {/* Coming Soon - standalone route */}
-              <Route path="/coming-soon" element={<ComingSoon />} />
 
               <Route path="*" element={<NotFound />} />
             </Routes>
             <ConditionalChatBot />
           </Suspense>
-          </SupabaseAuthProvider>
         </BrowserRouter>
       </TooltipProvider>
     </ThemeProvider>

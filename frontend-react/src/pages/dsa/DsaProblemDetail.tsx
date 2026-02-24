@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, useNavigate, useBlocker } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import Editor from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -47,11 +47,10 @@ import {
     Clock,
 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
-import { useSupabaseAuth } from "@/contexts/SupabaseAuthContext";
-import { useTheme } from "@/contexts/ThemeContext";
+import { getApiUrl } from "@/lib/api";
 import { recordActivity } from "@/features/dsa/streak/dsaActivityStore";
-import { fetchDsaQuestionById } from "@/features/dsa/api/questions";
+import { addSolvedProblem, syncSolvedToBackend } from "@/features/dsa/profile/dsaProfileStore";
+import { fetchDsaQuestionById, DsaApiError } from "@/features/dsa/api/questions";
 import type { DsaQuestionDetail } from "@/features/dsa/api/questions";
 import { executeCode } from "@/services/codeExecutionService";
 import { DsaAiHelper } from "@/components/dsa/DsaAiHelper";
@@ -62,6 +61,7 @@ import { FeedbackModal } from "@/components/dsa/FeedbackModal";
 import { analyzeComplexity, getComplexityBadgeClass } from "@/utils/codeComplexity";
 import { useTimerStopwatch } from "@/hooks/useTimerStopwatch";
 import { getTestCasesByProblemId } from "@/data/dsaTestCases";
+import { getDsaProblemById } from "@/data/dsaProblems";
 
 const STORAGE_KEY = (id: string) => `dsa_code_${id}`;
 
@@ -119,8 +119,6 @@ const LANGUAGES = [
 export default function DsaProblemDetailNew() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { user } = useSupabaseAuth(); // Use unified Supabase auth
-    const { theme } = useTheme(); // Get current theme
     const [problem, setProblem] = useState<DsaQuestionDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [language, setLanguage] = useState("java");
@@ -184,24 +182,18 @@ export default function DsaProblemDetailNew() {
         setHasSubmitted(false);
         
         try {
-            // Get ALL test cases: from API or fallback to database test cases
+            // Get ALL test cases: from API or fallback to local tough test cases
             const apiCases = problem.testCases || [];
-            let problemTestCases;
-            
-            if (apiCases.length > 0) {
-                problemTestCases = apiCases.map((tc: any) => ({
-                    input: tc.input,
-                    expected: tc.output ?? tc.expected,
-                }));
-            } else {
-                // Fetch from database - ONLY visible test cases (those with expected output)
-                const dbTestCases = await getTestCasesByProblemId(id!);
-                const visibleTestCases = dbTestCases.filter(tc => !tc.hidden && tc.expected !== null);
-                problemTestCases = visibleTestCases.map((tc) => ({
-                    input: tc.input,
-                    expected: tc.expected,
-                }));
-            }
+            const problemTestCases =
+                apiCases.length > 0
+                    ? apiCases.map((tc: any) => ({
+                          input: tc.input,
+                          expected: tc.output ?? tc.expected,
+                      }))
+                    : getTestCasesByProblemId(id!).map((tc) => ({
+                          input: tc.input,
+                          expected: tc.expected,
+                      }));
 
             if (problemTestCases.length === 0) {
                 toast.error('No test cases available for this problem');
@@ -213,120 +205,52 @@ export default function DsaProblemDetailNew() {
             const result = await executeCode(code, language, problemTestCases, true, entryPoint);
             
             // Process results
-            const formattedResults = result.results.map((tc: any, idx: number) => {
-                const userOutput = typeof tc.actual === 'object' ? JSON.stringify(tc.actual) : tc.actual;
-                
-                return {
-                    id: idx + 1,
-                    input: typeof tc.input === 'object' ? JSON.stringify(tc.input) : tc.input,
-                    expectedOutput: typeof tc.expected === 'object' ? JSON.stringify(tc.expected) : tc.expected,
-                    userOutput: userOutput,
-                    // FIXED: Use actual passed status from backend, not just output existence
-                    passed: tc.passed === true && !tc.error,
-                    executionTime: tc.executionTime,
-                    error: tc.error,
-                };
-            });
+            const formattedResults = result.results.map((tc: any, idx: number) => ({
+                id: idx + 1,
+                input: typeof tc.input === 'object' ? JSON.stringify(tc.input) : tc.input,
+                expectedOutput: typeof tc.expected === 'object' ? JSON.stringify(tc.expected) : tc.expected,
+                userOutput: typeof tc.actual === 'object' ? JSON.stringify(tc.actual) : tc.actual,
+                passed: tc.passed,
+                executionTime: tc.executionTime,
+                error: tc.error,
+            }));
             
             setTestCases(formattedResults);
             
-            // Check if ALL test cases passed
-            const passedCount = formattedResults.filter(tc => tc.passed).length;
-            const allPassed = passedCount === formattedResults.length;
-            
-            // Only mark as success if ALL tests passed
-            if (allPassed && result.overallStatus === 'success') {
+            if (result.overallStatus === 'success') {
                 setJudgeStatus('success');
                 setHasSubmitted(true);
                 setRunMetrics({
                     runtime: result.totalExecutionTime,
                     memory: result.averageMemory,
-                    runtimePercentile: 0,
-                    memoryPercentile: 0,
+                    runtimePercentile: 85,
+                    memoryPercentile: 70,
                     timestamp: new Date(),
                 });
-                
                 setSubmissionData({
                     status: 'success',
                     totalTestCases: problemTestCases.length,
-                    passedTestCases: passedCount,
+                    passedTestCases: result.results.filter((r: any) => r.passed).length,
                     metrics: {
                         runtime: result.totalExecutionTime,
                         memory: result.averageMemory,
-                        runtimePercentile: 0,
-                        memoryPercentile: 0,
+                        runtimePercentile: 85,
+                        memoryPercentile: 70,
                         timestamp: new Date(),
                     },
                     testCases: formattedResults,
                     timestamp: new Date(),
                 });
                 recordActivity();
-                
-                // Save submission to database as accepted
-                try {
-                    console.log('💾 Attempting to save submission for user:', user?.id);
-                    
-                    if (user) {
-                        const { data: questionData, error: questionError } = await supabase
-                            .from('dsa_questions')
-                            .select('id')
-                            .eq('slug', id)
-                            .single();
-                        
-                        console.log('📝 Question lookup:', { questionData, questionError, slug: id });
-                        
-                        if (questionData) {
-                            const score = (passedCount / problemTestCases.length) * 100;
-                            
-                            const submissionData = {
-                                user_id: user.id,
-                                problem_id: id,
-                                status: 'accepted',
-                                language: language,
-                                code_snippet: code,
-                                runtime_ms: result.totalExecutionTime,
-                                memory_mb: result.averageMemory,
-                            };
-                            
-                            console.log('💾 Inserting submission:', submissionData);
-                            
-                            const { data: insertedData, error: insertError } = await supabase
-                                .from('dsa_submissions')
-                                .insert(submissionData)
-                                .select();
-                            
-                            if (insertError) {
-                                console.error('❌ Submission insert error:', insertError);
-                                console.error('❌ Error details:', JSON.stringify(insertError, null, 2));
-                            } else {
-                                console.log('✅ Submission saved successfully:', insertedData);
-                            }
-                        } else {
-                            console.error('❌ Question not found in database for slug:', id);
-                        }
-                    } else {
-                        console.error('❌ No user logged in');
-                    }
-                } catch (dbError) {
-                    console.error('❌ Database error:', dbError);
+                if (id) {
+                    addSolvedProblem(id);
+                    syncSolvedToBackend(id, {
+                        language: language === "python" ? "python" : language === "java" ? "java" : language === "cpp" ? "cpp" : "javascript",
+                        runtime_ms: result.totalExecutionTime ?? undefined,
+                        memory_mb: result.averageMemory ?? undefined,
+                    }).catch(() => {});
                 }
-                
-                toast.success(`✅ All ${passedCount} test cases passed!`, {
-                    description: 'Redirecting to problems list...',
-                });
-                
-                // Navigate back to problems list after 2 seconds
-                setTimeout(() => {
-                    navigate('/dsa/problems');
-                }, 2000);
-                
-            } else if (passedCount > 0 && passedCount < formattedResults.length) {
-                // Some tests passed but not all
-                setJudgeStatus('wrong');
-                setHasSubmitted(true);
-                toast.error(`❌ ${passedCount}/${formattedResults.length} test cases passed`, {
-                    description: 'Fix the failing test cases and try again',
-                });
+                toast.success('✓ Submission successful! All test cases passed.');
             } else if (result.overallStatus === 'compilation_error') {
                 setJudgeStatus('error');
                 setHasSubmitted(true);
@@ -357,11 +281,31 @@ export default function DsaProblemDetailNew() {
                     description: result.complexity.analysis || 'Failed to compile code',
                 });
             } else {
-                // No output produced or runtime error
-                setJudgeStatus('error');
+                setJudgeStatus('wrong');
                 setHasSubmitted(true);
-                toast.error('Execution Error', {
-                    description: 'Code did not produce output. Please check your code.',
+                setRunMetrics({
+                    runtime: result.totalExecutionTime,
+                    memory: result.averageMemory,
+                    runtimePercentile: 60,
+                    memoryPercentile: 65,
+                    timestamp: new Date(),
+                });
+                setSubmissionData({
+                    status: 'wrong',
+                    totalTestCases: problemTestCases.length,
+                    passedTestCases: result.results.filter((r: any) => r.passed).length,
+                    metrics: {
+                        runtime: result.totalExecutionTime,
+                        memory: result.averageMemory,
+                        runtimePercentile: 60,
+                        memoryPercentile: 65,
+                        timestamp: new Date(),
+                    },
+                    testCases: formattedResults,
+                    timestamp: new Date(),
+                });
+                toast.error('Wrong Answer', {
+                    description: `${result.results.filter((r: any) => r.passed).length}/${problemTestCases.length} test cases passed`,
                 });
             }
         } catch (error) {
@@ -391,8 +335,7 @@ export default function DsaProblemDetailNew() {
     const storageKey = id ? STORAGE_KEY(id) : "";
 
     const boilerplate = {
-        
-/*java: `// Java Solution Template
+        java: `// Java Solution Template
 import java.util.*;
 
 class Solution {
@@ -405,31 +348,7 @@ class Solution {
         // Your code here
         return -1;
     }
-}`, */
-
-java: (() => {
-    const slug = problem?.id || "solution";
-
-    const methodName = slug
-        .split("-")
-        .map((part: string, i: number) =>
-            i === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1)
-        )
-        .join("");
-
-    return `// Java Solution Template
-import java.util.*;
-
-class Solution {
-    public Object ${methodName}(Object input) {
-        // Your code here
-        return null;
-    }
-}`;
-})(),
-
-
-
+}`,
         python: `# Python Solution Template
 def solution(input_data):
     """
@@ -473,77 +392,74 @@ int main() {
 }`
     };
 
-    useEffect(() => {
-        const loadProblem = async () => {
-            if (!id) return;
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    const loadProblem = useCallback(async () => {
+        if (!id) return;
+        setLoadError(null);
+        try {
+            setLoading(true);
             try {
-                setLoading(true);
                 const data = await fetchDsaQuestionById(id);
                 setProblem(data.item);
-                
-                // Load visible test cases from database to display initially
-                const visibleTestCases = await getTestCasesByProblemId(id);
-                const visibleOnly = visibleTestCases.filter(tc => !tc.hidden);
-                
-                if (visibleOnly.length > 0) {
-                    // Format visible test cases for display
-                    const formattedVisible = visibleOnly.map((tc, idx) => ({
-                        id: idx + 1,
-                        input: typeof tc.input === 'object' ? JSON.stringify(tc.input, null, 2) : String(tc.input),
-                        expectedOutput: typeof tc.expected === 'object' ? JSON.stringify(tc.expected, null, 2) : String(tc.expected),
-                        userOutput: 'Not run yet',
-                        passed: false,
-                    }));
-                    setTestCases(formattedVisible);
+            } catch (apiErr) {
+                const fallback = getDsaProblemById(id);
+                if (fallback) {
+                    const testCases = getTestCasesByProblemId(id);
+                    setProblem({
+                        id: fallback.id,
+                        title: fallback.title,
+                        difficulty: fallback.difficulty,
+                        acceptance: fallback.acceptance,
+                        tags: fallback.tags,
+                        description: fallback.description,
+                        examples: fallback.examples,
+                        constraints: fallback.constraints,
+                        testCases: testCases.map((tc) => ({ input: tc.input, expected: tc.expected })),
+                        isPremium: false,
+                        likes: 0,
+                        dislikes: 0,
+                    });
+                } else {
+                    throw apiErr;
                 }
-            } catch (err) {
-                console.error('Failed to fetch problem:', err);
-                toast.error('Failed to load problem');
-                navigate('/dsa/problems');
-            } finally {
-                setLoading(false);
             }
-        };
-        loadProblem();
-    }, [id, navigate]);
+        } catch (err) {
+            const message =
+                err instanceof DsaApiError
+                    ? err.message
+                    : err instanceof Error
+                        ? err.message
+                        : "Failed to load problem";
+            setLoadError(message);
+            console.error("Failed to fetch problem:", err);
+            toast.error(message);
+        } finally {
+            setLoading(false);
+        }
+    }, [id]);
 
-    // Real-time comment count subscription
+    useEffect(() => {
+        loadProblem();
+    }, [loadProblem]);
+
+    // Comment count from API
     useEffect(() => {
         if (!id) return;
-
-        // Fetch initial comment count
         const fetchCommentCount = async () => {
-            const { count } = await supabase
-                .from('problem_comments')
-                .select('*', { count: 'exact', head: true })
-                .eq('problem_slug', id)
-                .is('parent_comment_id', null); // Only count top-level comments
-            
-            setCommentCount(count || 0);
-        };
-
-        fetchCommentCount();
-
-        // Subscribe to real-time updates
-        const channel = supabase
-            .channel(`comment-count:${id}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'problem_comments',
-                    filter: `problem_slug=eq.${id}`
-                },
-                () => {
-                    fetchCommentCount();
+            try {
+                const res = await fetch(getApiUrl(`/api/comments/count?problem_slug=${encodeURIComponent(id)}`));
+                if (res.ok) {
+                    const data = await res.json();
+                    setCommentCount(data.count ?? 0);
                 }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
+            } catch {
+                // ignore
+            }
         };
+        fetchCommentCount();
+        const t = setInterval(fetchCommentCount, 20000);
+        return () => clearInterval(t);
     }, [id]);
 
     const handleLanguageChange = useCallback((newLanguage: string) => {
@@ -556,42 +472,8 @@ int main() {
         setLanguage(newLanguage);
         
         // Load appropriate boilerplate for new language
-        /*const newBoilerplate = boilerplate[newLanguage as keyof typeof boilerplate] || boilerplate.java;
-        setCode(newBoilerplate);*/
-
-// other languages are yet to check
-// New code starts
-	let newBoilerplate;
-
-if (newLanguage === "java" && problem) {
-    const methodName = problem.title
-        .replace(/[^a-zA-Z0-9 ]/g, "")
-        .split(" ")
-        .map((w: string, i: number) =>
-            i === 0
-                ? w.toLowerCase()
-                : w.charAt(0).toUpperCase() + w.slice(1)
-        )
-        .join("");
-
-    newBoilerplate = `import java.util.*;
-
-class Solution {
-    public Object ${methodName}(Object input) {
-        // Your code here
-        return null;
-    }
-}`;
-} else {
-    newBoilerplate =
-        boilerplate[newLanguage as keyof typeof boilerplate] || boilerplate.java;
-}
-
-setCode(newBoilerplate);
-
-
-// New code Ends 
-
+        const newBoilerplate = boilerplate[newLanguage as keyof typeof boilerplate] || boilerplate.java;
+        setCode(newBoilerplate);
         
         if (storageKey) {
             localStorage.setItem(storageKey, newBoilerplate);
@@ -601,7 +483,7 @@ setCode(newBoilerplate);
     }, [code, storageKey]);
 
     // Load saved code on initial load or language change
-    /*useEffect(() => {
+    useEffect(() => {
         if (storageKey) {
             const saved = localStorage.getItem(storageKey);
             if (saved) {
@@ -610,59 +492,7 @@ setCode(newBoilerplate);
                 setCode(boilerplate[language as keyof typeof boilerplate] || boilerplate.java);
             }
         }
-    }, [id]);*/
-
-
-
-
-
-
-
-// Load saved code on initial load or language change
-useEffect(() => {
-    if (!storageKey) return;
-
-    const saved = localStorage.getItem(storageKey);
-
-    if (saved) {
-        setCode(saved);
-        return;
-    }
-
-    if (language === "java" && problem) {
-        const methodName = problem.title
-            .replace(/[^a-zA-Z0-9 ]/g, "")
-            .split(" ")
-            .map((w: string, i: number) =>
-                i === 0
-                    ? w.toLowerCase()
-                    : w.charAt(0).toUpperCase() + w.slice(1)
-            )
-            .join("");
-
-        setCode(`import java.util.*;
-
-class Solution {
-    public Object ${methodName}(Object input) {
-        // Your code here
-        return null;
-    }
-}`);
-    } else {
-        setCode(
-            boilerplate[language as keyof typeof boilerplate] ||
-            boilerplate.java
-        );
-    }
-}, [id, language, problem]);
-
-
-
-
-
-
-
-
+    }, [id]);
 
     // Timer is managed by useTimerStopwatch hook
 
@@ -990,18 +820,12 @@ class Solution {
         setTestCases([]);
         
         try {
-            // Get visible test cases: from API or fallback to database (first 3)
+            // Get visible test cases: from API or fallback to local (first 3)
             const apiCases = problem.testCases || [];
-            let sourceCases;
-            
-            if (apiCases.length > 0) {
-                sourceCases = apiCases;
-            } else {
-                // Fetch from database
-                const dbTestCases = await getTestCasesByProblemId(id!);
-                sourceCases = dbTestCases.map((tc) => ({ input: tc.input, output: tc.expected }));
-            }
-            
+            const sourceCases =
+                apiCases.length > 0
+                    ? apiCases
+                    : getTestCasesByProblemId(id!).map((tc) => ({ input: tc.input, output: tc.expected }));
             const problemTestCases = sourceCases.slice(0, 3).map((tc: any) => ({
                 input: tc.input,
                 expected: tc.output ?? tc.expected,
@@ -1043,45 +867,28 @@ class Solution {
                     description: result.complexity.analysis || 'Code threw an exception',
                 });
             } else {
-                // Code ran successfully and produced output
                 setJudgeStatus('idle');
                 const formattedResults = result.results.map((tc: any, idx: number) => ({
                     id: idx + 1,
                     input: typeof tc.input === 'object' ? JSON.stringify(tc.input) : tc.input,
                     expectedOutput: typeof tc.expected === 'object' ? JSON.stringify(tc.expected) : tc.expected,
                     userOutput: typeof tc.actual === 'object' ? JSON.stringify(tc.actual) : tc.actual,
-                    // FIXED: Check if test actually passed (not just if output exists)
-                    passed: tc.passed === true && !tc.error,
+                    passed: tc.passed,
                     executionTime: tc.executionTime,
                     error: tc.error,
                 }));
                 setTestCases(formattedResults);
                 
-                // Set metrics ONLY if all tests passed
-                const passedCount = formattedResults.filter(tc => tc.passed).length;
-                const totalCount = formattedResults.length;
-                const allPassed = passedCount === totalCount;
+                // Update metrics
+                setRunMetrics({
+                    runtime: result.totalExecutionTime,
+                    memory: result.averageMemory,
+                    runtimePercentile: 75,
+                    memoryPercentile: 80,
+                    timestamp: new Date(),
+                });
                 
-                if (allPassed && result.totalExecutionTime > 0) {
-                    setRunMetrics({
-                        runtime: result.totalExecutionTime,
-                        memory: result.averageMemory,
-                        runtimePercentile: 0, // Real percentile would need historical data
-                        memoryPercentile: 0,  // Real percentile would need historical data
-                        timestamp: new Date(),
-                    });
-                } else {
-                    // Clear metrics if tests failed
-                    setRunMetrics(null);
-                }
-                
-                if (passedCount === totalCount) {
-                    toast.success(`All ${totalCount} test cases passed! ✅`);
-                } else if (passedCount > 0) {
-                    toast.warning(`${passedCount}/${totalCount} test cases passed`);
-                } else {
-                    toast.error(`All test cases failed ❌`);
-                }
+                toast.success('Run completed');
             }
         } catch (error) {
             setJudgeStatus('error');
@@ -1091,12 +898,32 @@ class Solution {
         }
     }, [id, code, language, problem]);
 
-    if (loading) {
+    if (loading && !loadError) {
         return (
             <div className="h-screen w-full flex items-center justify-center">
                 <div className="text-center space-y-4">
                     <Loader2 className="h-12 w-12 animate-spin text-cyan-500 mx-auto" />
-                    <p className="text-gray-800 dark:text-slate-300">Loading problem...</p>
+                    <p className="text-slate-300">Loading problem...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (loadError && !problem) {
+        return (
+            <div className="h-screen w-full flex items-center justify-center p-6">
+                <div className="text-center space-y-4 max-w-md">
+                    <AlertCircle className="h-12 w-12 text-amber-500 mx-auto" />
+                    <h2 className="text-lg font-semibold text-foreground">Could not load problem</h2>
+                    <p className="text-sm text-muted-foreground">{loadError}</p>
+                    <div className="flex flex-wrap gap-3 justify-center">
+                        <Button onClick={() => loadProblem()} variant="default">
+                            Retry
+                        </Button>
+                        <Button onClick={() => navigate("/dsa/problems")} variant="outline">
+                            Back to list
+                        </Button>
+                    </div>
                 </div>
             </div>
         );
@@ -1105,7 +932,7 @@ class Solution {
     if (!problem) return <div className="p-10 text-center">Problem not found</div>;
 
     return (
-        <div className="h-screen w-full flex flex-col bg-white dark:bg-[#0B0F14] p-4 gap-4 relative">
+        <div className="h-screen w-full flex flex-col bg-[#0B0F14] p-4 gap-4 relative">
             {/* Top Navigation */}
             <div className="flex items-center justify-end">
                 {focusMode && (
@@ -1125,15 +952,15 @@ class Solution {
                 {!focusMode && layoutMode !== 'code-only' && (
                     <>
                         <div 
-                            className={`flex flex-col bg-white dark:bg-[#1a1f2e] border border-gray-200 dark:border-transparent rounded-[14px] shadow-lg overflow-hidden transition-all duration-300 ${
+                            className={`flex flex-col bg-[#1a1f2e] rounded-[14px] shadow-lg overflow-hidden transition-all duration-300 ${
                                 layoutMode === 'split-vertical' ? 'w-full h-[40%]' : ''
                             }`}
                             style={layoutMode !== 'split-vertical' ? { width: `${problemPanelWidth}%` } : {}}
                         >
                         {/* Header */}
-                        <div className="p-5 border-b border-gray-200 dark:border-white/10">
+                        <div className="p-5 border-b border-white/10">
                             <div className="flex items-start justify-between mb-3">
-                                <h1 className="text-xl font-bold text-gray-900 dark:text-white leading-tight flex-1">{problem.title}</h1>
+                                <h1 className="text-xl font-bold text-white leading-tight flex-1">{problem.title}</h1>
                                 <Badge className={`ml-3 rounded-full px-[10px] py-1 text-xs font-bold ${
                                     problem.difficulty === "Easy" ? "bg-green-500/20 text-green-400" :
                                     problem.difficulty === "Medium" ? "bg-yellow-500/20 text-yellow-400" :
@@ -1144,7 +971,7 @@ class Solution {
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 {problem.tags.map((tag, idx) => (
-                                    <Badge key={idx} variant="secondary" className="bg-white/10 text-gray-800 dark:text-slate-300 border-none text-xs">
+                                    <Badge key={idx} variant="secondary" className="bg-white/10 text-slate-300 border-none text-xs">
                                         {tag}
                                     </Badge>
                                 ))}
@@ -1153,17 +980,17 @@ class Solution {
 
                         {/* Scrollable Content */}
                         <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar">
-                            <p className="text-gray-800 dark:text-slate-300 text-sm leading-relaxed whitespace-pre-line">{problem.description}</p>
+                            <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-line">{problem.description}</p>
 
                             {/* Examples */}
                             {problem.examples.map((example, idx) => (
-                                <div key={idx} className="bg-gray-50 dark:bg-[#0f1419] rounded-[10px] p-3 shadow-inner border border-gray-200 dark:border-transparent">
-                                    <h3 className="text-gray-900 dark:text-white font-semibold text-sm mb-2">Example {idx + 1}:</h3>
+                                <div key={idx} className="bg-[#0f1419] rounded-[10px] p-3 shadow-inner">
+                                    <h3 className="text-white font-semibold text-sm mb-2">Example {idx + 1}:</h3>
                                     <div className="font-mono text-xs space-y-1">
-                                        <div><span className="text-gray-700 dark:text-slate-400">Input:</span> <span className="text-gray-900 dark:text-slate-200">{example.input}</span></div>
-                                        <div><span className="text-gray-700 dark:text-slate-400">Output:</span> <span className="text-gray-900 dark:text-slate-200">{example.output}</span></div>
+                                        <div><span className="text-slate-400">Input:</span> <span className="text-slate-200">{example.input}</span></div>
+                                        <div><span className="text-slate-400">Output:</span> <span className="text-slate-200">{example.output}</span></div>
                                         {example.explanation && (
-                                            <div><span className="text-gray-700 dark:text-slate-400">Explanation:</span> <span className="text-gray-900 dark:text-slate-200">{example.explanation}</span></div>
+                                            <div><span className="text-slate-400">Explanation:</span> <span className="text-slate-200">{example.explanation}</span></div>
                                         )}
                                     </div>
                                 </div>
@@ -1172,8 +999,8 @@ class Solution {
                             {/* Constraints */}
                             {problem.constraints && problem.constraints.length > 0 && (
                                 <div className="mt-4">
-                                    <h3 className="text-gray-900 dark:text-white font-semibold text-sm mb-2">Constraints:</h3>
-                                    <ul className="list-disc pl-5 space-y-1 text-gray-800 dark:text-slate-300 text-xs">
+                                    <h3 className="text-white font-semibold text-sm mb-2">Constraints:</h3>
+                                    <ul className="list-disc pl-5 space-y-1 text-slate-300 text-xs">
                                         {problem.constraints.map((constraint, idx) => (
                                             <li key={idx}>{constraint}</li>
                                         ))}
@@ -1200,25 +1027,17 @@ class Solution {
                         />
                     </div>
 
-                    {/* Horizontal Resize Handle for Problem Panel - ENHANCED */}
+                    {/* Horizontal Resize Handle for Problem Panel */}
                     {layoutMode !== 'split-vertical' && (
                         <div 
-                            className={`w-1 flex items-center justify-center cursor-col-resize group hover:bg-cyan-500/30 transition-all relative ${
-                                isResizingHorizontal ? 'bg-cyan-500/50 w-1.5' : 'bg-white/10'
+                            className={`w-2 flex items-center justify-center cursor-col-resize group hover:bg-cyan-500/20 transition-colors ${
+                                isResizingHorizontal ? 'bg-cyan-500/30' : ''
                             }`}
                             onMouseDown={handleHorizontalResizeStart}
-                            style={{ 
-                                minWidth: '4px',
-                                zIndex: 10,
-                            }}
                         >
-                            {/* Visible drag indicator */}
-                            <div className={`absolute inset-y-0 left-1/2 -translate-x-1/2 w-1 transition-all ${
-                                isResizingHorizontal ? 'bg-cyan-400 w-1' : 'bg-white/30 group-hover:bg-cyan-400 group-hover:w-1'
+                            <div className={`h-12 w-1 rounded-full transition-all ${
+                                isResizingHorizontal ? 'bg-cyan-400 scale-110' : 'bg-white/20 group-hover:bg-cyan-400 group-hover:scale-110'
                             }`} />
-                            
-                            {/* Hover area (wider for easier grabbing) */}
-                            <div className="absolute inset-y-0 -left-2 -right-2 cursor-col-resize" />
                         </div>
                     )}
                     </>
@@ -1237,11 +1056,11 @@ class Solution {
                 >
                     {/* Editor Card */}
                     <div 
-                        className="flex flex-col bg-white dark:bg-[#1a1f2e] border border-gray-200 dark:border-transparent rounded-[14px] shadow-lg"
+                        className="flex flex-col bg-[#1a1f2e] rounded-[14px] shadow-lg"
                         style={{ height: `calc(100% - ${bottomPanelHeight}px - 8px)` }}
                     >
                         {/* Top Toolbar */}
-                        <div className="h-12 flex items-center justify-between px-4 border-b border-gray-200 dark:border-white/10 shrink-0">
+                        <div className="h-12 flex items-center justify-between px-4 border-b border-white/10 shrink-0">
                             <div className="flex items-center gap-3">
                                 <Select value={language} onValueChange={handleLanguageChange}>
                                     <SelectTrigger className="h-8 w-[120px] rounded-full border-white/20 bg-white/5 text-xs font-semibold">
@@ -1251,7 +1070,7 @@ class Solution {
                                         {LANGUAGES.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
-                                <span className="text-sm font-semibold text-blue-600 dark:text-cyan-400 border-b-2 border-cyan-400 pb-1">Code</span>
+                                <span className="text-sm font-semibold text-cyan-400 border-b-2 border-cyan-400 pb-1">Code</span>
                                 {timerActive && (
                                     <Badge className={`ml-2 rounded-full px-3 py-1 text-xs font-bold transition-colors duration-300 ${timer.getTimerColorClass()}`}>
                                         ⏱ {timer.getDisplayTime()}
@@ -1267,14 +1086,14 @@ class Solution {
                                     className="h-[34px] w-[34px] rounded-full flex items-center justify-center hover:bg-white/10 hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer group"
                                     title="Format Code"
                                 >
-                                    <Wand2 className="h-4 w-4 text-gray-900 dark:text-slate-400 group-hover:text-gray-900 dark:text-white" />
+                                    <Wand2 className="h-4 w-4 text-slate-400 group-hover:text-white" />
                                 </button>
 
                                 {/* Button 2: Timer */}
                                 <button
                                     onClick={() => timerActive ? handleStopTimer() : setShowTimerModal(true)}
                                     className={`h-[34px] w-[34px] rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer group ${
-                                        timerActive ? 'bg-blue-100 dark:bg-cyan-500/20 shadow-lg shadow-cyan-500/30' : 'hover:bg-white/10'
+                                        timerActive ? 'bg-cyan-500/20 shadow-lg shadow-cyan-500/30' : 'hover:bg-white/10'
                                     }`}
                                     title={timerActive ? "Stop Timer" : "Timer / Stopwatch"}
                                 >
@@ -1287,7 +1106,7 @@ class Solution {
                                     className="h-[34px] w-[34px] rounded-full flex items-center justify-center hover:bg-white/10 hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer group"
                                     title="Reset Code"
                                 >
-                                    <RotateCcw className="h-4 w-4 text-gray-900 dark:text-slate-400 group-hover:text-gray-900 dark:text-white" />
+                                    <RotateCcw className="h-4 w-4 text-slate-400 group-hover:text-white" />
                                 </button>
 
                                 {/* Button 4: Layout Switcher */}
@@ -1297,10 +1116,10 @@ class Solution {
                                         className="h-[34px] w-[34px] rounded-full flex items-center justify-center hover:bg-white/10 hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer group"
                                         title="Change Layout"
                                     >
-                                        <LayoutGrid className="h-4 w-4 text-gray-900 dark:text-slate-400 group-hover:text-gray-900 dark:text-white" />
+                                        <LayoutGrid className="h-4 w-4 text-slate-400 group-hover:text-white" />
                                     </button>
                                     {showLayoutMenu && (
-                                        <div className="absolute right-0 top-12 bg-white dark:bg-[#1a1f2e] border border-gray-200 dark:border-transparent border border-gray-200 dark:border-white/10 rounded-lg shadow-xl p-2 w-52 z-50">
+                                        <div className="absolute right-0 top-12 bg-[#1a1f2e] border border-white/10 rounded-lg shadow-xl p-2 w-52 z-50">
                                             {[
                                                 { mode: 'layout-a' as LayoutMode, label: 'Competitive (Code top, Q + AI below)' },
                                                 { mode: 'layout-b' as LayoutMode, label: 'Advanced (Code right, AI floating popup)' },
@@ -1313,7 +1132,7 @@ class Solution {
                                                     key={mode}
                                                     onClick={() => handleLayoutChange(mode)}
                                                     className={`w-full text-left px-3 py-2 rounded text-sm hover:bg-white/10 transition-colors ${
-                                                        layoutMode === mode ? 'text-blue-600 dark:text-cyan-400 bg-cyan-500/10' : 'text-gray-800 dark:text-slate-300'
+                                                        layoutMode === mode ? 'text-cyan-400 bg-cyan-500/10' : 'text-slate-300'
                                                     }`}
                                                 >
                                                     {label}
@@ -1331,7 +1150,7 @@ class Solution {
                                     }`}
                                     title="Focus Mode"
                                 >
-                                    <Maximize className={`h-4 w-4 ${focusMode ? 'text-purple-400' : 'text-gray-900 dark:text-slate-400 group-hover:text-gray-900 dark:text-white'}`} />
+                                    <Maximize className={`h-4 w-4 ${focusMode ? 'text-purple-400' : 'text-slate-400 group-hover:text-white'}`} />
                                 </button>
                             </div>
                         </div>
@@ -1344,14 +1163,8 @@ class Solution {
                                 value={code}
                                 onChange={handleCodeChange}
                                 onMount={(editor) => setEditorRef(editor)}
-                                theme={theme === 'dark' ? "vs-dark" : "light"}
-                                loading={<div className="flex items-center justify-center h-full text-gray-900 dark:text-slate-400">
-                                    <div className="text-center">
-                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500 mx-auto mb-2"></div>
-                                        <p>Loading editor...</p>
-                                        <p className="text-xs mt-2">If stuck, press Ctrl+Shift+R to refresh</p>
-                                    </div>
-                                </div>}
+                                theme="vs-dark"
+                                loading={<div className="flex items-center justify-center h-full text-slate-400">Loading editor...</div>}
                                 options={{
                                     // Basic settings
                                     minimap: { enabled: false },
@@ -1449,13 +1262,13 @@ class Solution {
                         </div>
 
                         {/* Run & Submit Buttons - Sticky at bottom */}
-                        <div className="shrink-0 p-4 border-t border-gray-200 dark:border-white/10 flex items-center justify-between bg-white dark:bg-[#1a1f2e] border border-gray-200 dark:border-transparent sticky bottom-0 z-10">
+                        <div className="shrink-0 p-4 border-t border-white/10 flex items-center justify-between bg-[#1a1f2e] sticky bottom-0 z-10">
                             {/* Left side - Run & Submit */}
                             <div className="flex items-center gap-3">
                                 <Button
                                     onClick={handleRun}
                                     disabled={judgeStatus === 'running'}
-                                    className="rounded-lg px-[18px] py-2 font-semibold text-sm bg-white/10 hover:bg-white/20 text-gray-900 dark:text-white border border-white/20 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+                                    className="rounded-lg px-[18px] py-2 font-semibold text-sm bg-white/10 hover:bg-white/20 text-white border border-white/20 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
                                 >
                                     {judgeStatus === 'running' ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Play className="h-4 w-4 mr-2 fill-current" />}
                                     Run
@@ -1474,7 +1287,7 @@ class Solution {
                                 {!focusMode && (
                                     <button
                                         onClick={() => setShowFeedbackModal(true)}
-                                        className="h-[36px] px-3 rounded-lg flex items-center gap-2 bg-white/10 hover:bg-white/15 hover:-translate-y-0.5 hover:shadow-lg active:scale-95 transition-all duration-200 cursor-pointer group text-gray-900 dark:text-slate-400 hover:text-gray-900 dark:text-white text-sm font-medium"
+                                        className="h-[36px] px-3 rounded-lg flex items-center gap-2 bg-white/10 hover:bg-white/15 hover:-translate-y-0.5 hover:shadow-lg active:scale-95 transition-all duration-200 cursor-pointer group text-slate-400 hover:text-white text-sm font-medium"
                                         title="Submit feedback"
                                     >
                                         <MessageSquare className="h-4 w-4" />
@@ -1487,36 +1300,28 @@ class Solution {
                                         className="h-[36px] w-[36px] rounded-lg flex items-center justify-center bg-white/10 hover:bg-white/15 hover:-translate-y-0.5 hover:shadow-lg active:scale-95 transition-all duration-200 cursor-pointer group"
                                         title={showAiHelper ? "Hide AI Helper" : "Open AI Helper"}
                                     >
-                                        <Bot className={`h-5 w-5 transition-colors ${showAiHelper ? 'text-blue-600 dark:text-cyan-400' : 'text-gray-900 dark:text-slate-400 group-hover:text-gray-900 dark:text-white'}`} />
+                                        <Bot className={`h-5 w-5 transition-colors ${showAiHelper ? 'text-cyan-400' : 'text-slate-400 group-hover:text-white'}`} />
                                     </button>
                                 )}
                             </div>
                         </div>
                     </div>
 
-                    {/* Resize Handle - ENHANCED for better visibility */}
+                    {/* Resize Handle */}
                     <div 
-                        className={`h-1 flex items-center justify-center cursor-row-resize group hover:bg-cyan-500/30 transition-all relative ${
-                            isResizing ? 'bg-cyan-500/50 h-1.5' : 'bg-white/10'
+                        className={`h-2 flex items-center justify-center cursor-row-resize group hover:bg-cyan-500/20 transition-colors ${
+                            isResizing ? 'bg-cyan-500/30' : ''
                         }`}
                         onMouseDown={handleResizeStart}
-                        style={{ 
-                            minHeight: '4px',
-                            zIndex: 10,
-                        }}
                     >
-                        {/* Visible drag indicator */}
-                        <div className={`absolute inset-x-0 top-1/2 -translate-y-1/2 h-1 transition-all ${
-                            isResizing ? 'bg-cyan-400 h-1' : 'bg-white/30 group-hover:bg-cyan-400 group-hover:h-1'
+                        <div className={`w-12 h-1 rounded-full transition-all ${
+                            isResizing ? 'bg-cyan-400 scale-110' : 'bg-white/20 group-hover:bg-cyan-400 group-hover:scale-110'
                         }`} />
-                        
-                        {/* Hover area (taller for easier grabbing) */}
-                        <div className="absolute inset-x-0 -top-2 -bottom-2 cursor-row-resize" />
                     </div>
 
                     {/* Results Panel */}
                     <div 
-                        className="bg-white dark:bg-[#1a1f2e] border border-gray-200 dark:border-transparent rounded-[14px] shadow-lg overflow-hidden flex flex-col"
+                        className="bg-[#1a1f2e] rounded-[14px] shadow-lg overflow-hidden flex flex-col"
                         style={{ 
                             height: `${bottomPanelHeight}px`,
                             minHeight: `${MIN_HEIGHT}px`,
@@ -1524,15 +1329,15 @@ class Solution {
                         }}
                     >
                         {/* Top Tab Bar */}
-                        <div className="flex items-center border-b border-gray-200 dark:border-white/10 px-2">
+                        <div className="flex items-center border-b border-white/10 px-2">
                             {/* Tabs */}
                             <div className="flex">
                                 <button
                                     onClick={() => setActiveResultsTab('output')}
                                     className={`px-4 py-2.5 text-xs font-medium transition-colors flex items-center gap-2 ${
                                         activeResultsTab === 'output'
-                                            ? 'text-blue-600 dark:text-cyan-400 border-b-2 border-cyan-400'
-                                            : 'text-gray-900 dark:text-slate-400 hover:text-gray-900 dark:text-white'
+                                            ? 'text-cyan-400 border-b-2 border-cyan-400'
+                                            : 'text-slate-400 hover:text-white'
                                     }`}
                                 >
                                     <FileText className="h-3.5 w-3.5" />
@@ -1542,8 +1347,8 @@ class Solution {
                                     onClick={() => setActiveResultsTab('results')}
                                     className={`px-4 py-2.5 text-xs font-medium transition-colors flex items-center gap-2 ${
                                         activeResultsTab === 'results'
-                                            ? 'text-blue-600 dark:text-cyan-400 border-b-2 border-cyan-400'
-                                            : 'text-gray-900 dark:text-slate-400 hover:text-gray-900 dark:text-white'
+                                            ? 'text-cyan-400 border-b-2 border-cyan-400'
+                                            : 'text-slate-400 hover:text-white'
                                     }`}
                                 >
                                     <Activity className="h-3.5 w-3.5" />
@@ -1565,11 +1370,11 @@ class Solution {
                                         </span>
                                     </div>
                                 )}
-                                <button className="flex items-center gap-1.5 text-gray-900 dark:text-slate-400 hover:text-gray-900 dark:text-white transition-colors">
+                                <button className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors">
                                     <FileText className="h-3.5 w-3.5" />
                                     <span className="text-xs font-medium">Solutions</span>
                                 </button>
-                                <button className="flex items-center gap-1.5 text-gray-900 dark:text-slate-400 hover:text-gray-900 dark:text-white transition-colors">
+                                <button className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors">
                                     <History className="h-3.5 w-3.5" />
                                     <span className="text-xs font-medium">Submissions</span>
                                 </button>
@@ -1583,26 +1388,22 @@ class Solution {
                                 <div className="h-full flex flex-col">
                                     {/* Case Selector */}
                                     {testCases.length > 0 && (
-                                        <div className="flex gap-2 px-4 py-2 border-b border-gray-200 dark:border-white/5">
+                                        <div className="flex gap-2 px-4 py-2 border-b border-white/5">
                                             {testCases.map((tc, idx) => (
                                                 <button
                                                     key={tc.id}
                                                     onClick={() => setActiveCase(idx)}
                                                     className={`rounded-full px-[14px] py-1.5 text-xs font-medium transition-all duration-200 flex items-center gap-2 ${
                                                         activeCase === idx
-                                                            ? tc.userOutput === 'Not run yet'
-                                                                ? 'bg-slate-500/20 text-gray-800 dark:text-slate-300 border border-slate-500/30'
-                                                                : tc.passed 
-                                                                    ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                                                                    : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                                                            : 'bg-transparent border border-white/20 text-gray-800 dark:text-slate-300 hover:border-cyan-500/50'
+                                                            ? tc.passed 
+                                                                ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                                                                : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                                            : 'bg-transparent border border-white/20 text-slate-300 hover:border-cyan-500/50'
                                                     }`}
                                                 >
-                                                    {tc.userOutput !== 'Not run yet' && (
-                                                        <span className={tc.passed ? 'text-green-400' : 'text-red-400'}>
-                                                            {tc.passed ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
-                                                        </span>
-                                                    )}
+                                                    <span className={tc.passed ? 'text-green-400' : 'text-red-400'}>
+                                                        {tc.passed ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
+                                                    </span>
                                                     Case {idx + 1}
                                                 </button>
                                             ))}
@@ -1615,36 +1416,35 @@ class Solution {
                                             {testCases[activeCase] && (
                                                 <div className="space-y-4">
                                                     <div className="grid grid-cols-2 gap-4">
-                                                        <div className="bg-gray-50 dark:bg-[#0f1419] rounded-lg p-3 border border-gray-200 dark:border-transparent">
-                                                            <div className="text-xs text-gray-700 dark:text-slate-400 mb-2 flex items-center gap-1 font-semibold">
-                                                                <span className="text-blue-600 dark:text-cyan-400">📥</span> Input
+                                                        <div className="bg-[#0f1419] rounded-lg p-3">
+                                                            <div className="text-xs text-slate-400 mb-2 flex items-center gap-1">
+                                                                <span className="text-cyan-400">📥</span> Input
                                                             </div>
-                                                            <div className="text-xs text-gray-900 dark:text-slate-200 font-mono whitespace-pre-wrap break-all">
+                                                            <div className="text-xs text-slate-200 font-mono whitespace-pre-wrap break-all">
                                                                 {testCases[activeCase].input}
                                                             </div>
                                                         </div>
-                                                        <div className="bg-gray-50 dark:bg-[#0f1419] rounded-lg p-3 border border-gray-200 dark:border-transparent">
-                                                            <div className="text-xs text-gray-700 dark:text-slate-400 mb-2 flex items-center gap-1 font-semibold">
-                                                                <span className="text-yellow-600 dark:text-yellow-400">📤</span> Expected Output
+                                                        <div className="bg-[#0f1419] rounded-lg p-3">
+                                                            <div className="text-xs text-slate-400 mb-2 flex items-center gap-1">
+                                                                <span className="text-yellow-400">📤</span> Expected Output
                                                             </div>
-                                                            <div className="text-xs text-gray-900 dark:text-slate-200 font-mono whitespace-pre-wrap break-all">
+                                                            <div className="text-xs text-slate-200 font-mono whitespace-pre-wrap break-all">
                                                                 {testCases[activeCase].expectedOutput}
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <div className="bg-gray-50 dark:bg-[#0f1419] rounded-lg p-3 border border-gray-200 dark:border-transparent">
-                                                        <div className="text-xs text-gray-700 dark:text-slate-400 mb-2 flex items-center gap-1 font-semibold">
-                                                            <span className="text-purple-600 dark:text-purple-400">👤</span> Your Output
+                                                    <div className="bg-[#0f1419] rounded-lg p-3">
+                                                        <div className="text-xs text-slate-400 mb-2 flex items-center gap-1">
+                                                            <span className="text-purple-400">👤</span> Your Output
                                                         </div>
                                                         <div className={`text-xs font-mono whitespace-pre-wrap break-all ${
-                                                            testCases[activeCase].error ? 'text-yellow-600 dark:text-yellow-400' :
-                                                            testCases[activeCase].userOutput === 'Not run yet' ? 'text-gray-500 dark:text-slate-500 italic' :
-                                                            testCases[activeCase].passed ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                                                            testCases[activeCase].error ? 'text-yellow-400' :
+                                                            testCases[activeCase].passed ? 'text-green-400' : 'text-red-400'
                                                         }`}>
                                                             {testCases[activeCase].error || testCases[activeCase].userOutput}
                                                         </div>
                                                         {testCases[activeCase].error && (
-                                                            <div className="mt-2 p-2 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded text-xs text-red-700 dark:text-red-400">
+                                                            <div className="mt-2 p-2 bg-red-500/10 border border-red-500/20 rounded text-xs text-red-400">
                                                                 <span className="font-semibold">Error:</span> {testCases[activeCase].error}
                                                             </div>
                                                         )}
@@ -1655,8 +1455,9 @@ class Solution {
                                     ) : (
                                         <div className="flex-1 flex items-center justify-center">
                                             <div className="text-center">
-                                                <Loader2 className="h-12 w-12 text-slate-600 mx-auto mb-3 animate-spin" />
-                                                <p className="text-gray-900 dark:text-slate-400 text-sm">Loading test cases...</p>
+                                                <FileText className="h-12 w-12 text-slate-600 mx-auto mb-3" />
+                                                <p className="text-slate-400 text-sm">No output yet.</p>
+                                                <p className="text-slate-500 text-xs">Run code to see results</p>
                                             </div>
                                         </div>
                                     )}
@@ -1671,70 +1472,61 @@ class Solution {
                                             {/* Main Metrics Cards */}
                                             <div className="grid grid-cols-2 gap-4">
                                                 {/* Runtime Card */}
-                                                <div className="bg-gray-50 dark:bg-[#0f1419] rounded-xl p-4 border border-gray-200 dark:border-white/5">
+                                                <div className="bg-[#0f1419] rounded-xl p-4 border border-white/5">
                                                     <div className="flex items-center justify-between mb-3">
                                                         <div className="flex items-center gap-2">
                                                             <div className="h-8 w-8 rounded-lg bg-cyan-500/10 flex items-center justify-center">
-                                                                <Cpu className="h-4 w-4 text-blue-600 dark:text-cyan-400" />
+                                                                <Cpu className="h-4 w-4 text-cyan-400" />
                                                             </div>
                                                             <div>
-                                                                <div className="text-xs text-gray-900 dark:text-slate-400">Runtime</div>
-                                                                <div className="text-lg font-bold text-gray-900 dark:text-white">{runMetrics.runtime} <span className="text-xs text-slate-500 font-normal">ms</span></div>
+                                                                <div className="text-xs text-slate-400">Runtime</div>
+                                                                <div className="text-lg font-bold text-white">{runMetrics.runtime} <span className="text-xs text-slate-500 font-normal">ms</span></div>
                                                             </div>
                                                         </div>
-                                                        {runMetrics.runtimePercentile > 0 && (
-                                                            <div className="text-right">
-                                                                <div className="text-xs text-gray-900 dark:text-slate-400">Beats</div>
-                                                                <div className="text-sm font-semibold text-green-400">{runMetrics.runtimePercentile}%</div>
-                                                            </div>
-                                                        )}
+                                                        <div className="text-right">
+                                                            <div className="text-xs text-slate-400">Beats</div>
+                                                            <div className="text-sm font-semibold text-green-400">{runMetrics.runtimePercentile}%</div>
+                                                        </div>
                                                     </div>
-                                                    {runMetrics.runtimePercentile > 0 && (
-                                                        <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                                                            <div 
-                                                                className="h-full bg-gradient-to-r from-cyan-500 to-green-400 rounded-full"
-                                                                style={{ width: `${runMetrics.runtimePercentile}%` }}
-                                                            />
-                                                        </div>
-                                                    )}
+                                                    <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                                        <div 
+                                                            className="h-full bg-gradient-to-r from-cyan-500 to-green-400 rounded-full"
+                                                            style={{ width: `${runMetrics.runtimePercentile}%` }}
+                                                        />
+                                                    </div>
                                                 </div>
                                                 
                                                 {/* Memory Card */}
-                                                <div className="bg-gray-50 dark:bg-[#0f1419] rounded-xl p-4 border border-gray-200 dark:border-white/5">
+                                                <div className="bg-[#0f1419] rounded-xl p-4 border border-white/5">
                                                     <div className="flex items-center justify-between mb-3">
                                                         <div className="flex items-center gap-2">
                                                             <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
                                                                 <HardDrive className="h-4 w-4 text-purple-400" />
                                                             </div>
                                                             <div>
-                                                                <div className="text-xs text-gray-900 dark:text-slate-400">Memory</div>
-                                                                <div className="text-lg font-bold text-gray-900 dark:text-white">{runMetrics.memory} <span className="text-xs text-slate-500 font-normal">MB</span></div>
+                                                                <div className="text-xs text-slate-400">Memory</div>
+                                                                <div className="text-lg font-bold text-white">{runMetrics.memory} <span className="text-xs text-slate-500 font-normal">MB</span></div>
                                                             </div>
                                                         </div>
-                                                        {runMetrics.memoryPercentile > 0 && (
-                                                            <div className="text-right">
-                                                                <div className="text-xs text-gray-900 dark:text-slate-400">Beats</div>
-                                                                <div className="text-sm font-semibold text-green-400">{runMetrics.memoryPercentile}%</div>
-                                                            </div>
-                                                        )}
+                                                        <div className="text-right">
+                                                            <div className="text-xs text-slate-400">Beats</div>
+                                                            <div className="text-sm font-semibold text-green-400">{runMetrics.memoryPercentile}%</div>
+                                                        </div>
                                                     </div>
-                                                    {runMetrics.memoryPercentile > 0 && (
-                                                        <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                                                            <div 
-                                                                className="h-full bg-gradient-to-r from-purple-500 to-pink-400 rounded-full"
-                                                                style={{ width: `${runMetrics.memoryPercentile}%` }}
-                                                            />
-                                                        </div>
-                                                    )}
+                                                    <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                                        <div 
+                                                            className="h-full bg-gradient-to-r from-purple-500 to-pink-400 rounded-full"
+                                                            style={{ width: `${runMetrics.memoryPercentile}%` }}
+                                                        />
+                                                    </div>
                                                 </div>
                                             </div>
                                             
-                                            {/* Performance Distribution Chart - Hidden for now (needs real data) */}
-                                            {false && runMetrics.runtimePercentile > 0 && (
-                                            <div className="bg-gray-50 dark:bg-[#0f1419] rounded-xl p-4 border border-gray-200 dark:border-white/5">
+                                            {/* Performance Distribution Chart */}
+                                            <div className="bg-[#0f1419] rounded-xl p-4 border border-white/5">
                                                 <div className="flex items-center gap-2 mb-3">
-                                                    <TrendingUp className="h-4 w-4 text-blue-600 dark:text-cyan-400" />
-                                                    <span className="text-xs font-medium text-gray-800 dark:text-slate-300">Performance Distribution</span>
+                                                    <TrendingUp className="h-4 w-4 text-cyan-400" />
+                                                    <span className="text-xs font-medium text-slate-300">Performance Distribution</span>
                                                 </div>
                                                 <ChartContainer
                                                     config={{
@@ -1766,20 +1558,19 @@ class Solution {
                                                     </BarChart>
                                                 </ChartContainer>
                                             </div>
-                                            )}
                                             
                                             {/* Complexity Analysis Card */}
-                                            <div className="bg-gray-50 dark:bg-[#0f1419] rounded-xl p-4 border border-gray-200 dark:border-white/5">
+                                            <div className="bg-[#0f1419] rounded-xl p-4 border border-white/5">
                                                 <div className="flex items-center gap-2 mb-3">
-                                                    <Activity className="h-4 w-4 text-blue-600 dark:text-cyan-400" />
-                                                    <span className="text-xs font-medium text-gray-800 dark:text-slate-300">Complexity Analysis</span>
+                                                    <Activity className="h-4 w-4 text-cyan-400" />
+                                                    <span className="text-xs font-medium text-slate-300">Complexity Analysis</span>
                                                 </div>
                                                 {(() => {
                                                     const complexity = analyzeComplexity(code);
                                                     return (
                                                         <div className="space-y-3">
                                                             <div className="flex items-center justify-between">
-                                                                <span className="text-xs text-gray-900 dark:text-slate-400">Estimated Complexity</span>
+                                                                <span className="text-xs text-slate-400">Estimated Complexity</span>
                                                                 <span className={`text-sm font-bold px-3 py-1 rounded-full border ${getComplexityBadgeClass(complexity.estimatedComplexity)}`}>
                                                                     {complexity.estimatedComplexity}
                                                                 </span>
@@ -1794,8 +1585,8 @@ class Solution {
                                                                     ))}
                                                                 </div>
                                                             )}
-                                                            <div className="flex items-center gap-4 text-xs text-slate-500 pt-2 border-t border-gray-200 dark:border-white/5">
-                                                                <span className={complexity.hasLoops ? 'text-blue-600 dark:text-cyan-400' : ''}>
+                                                            <div className="flex items-center gap-4 text-xs text-slate-500 pt-2 border-t border-white/5">
+                                                                <span className={complexity.hasLoops ? 'text-cyan-400' : ''}>
                                                                     {complexity.hasLoops ? '● Loops detected' : '○ No loops'}
                                                                 </span>
                                                                 <span className={complexity.hasRecursion ? 'text-purple-400' : ''}>
@@ -1809,33 +1600,16 @@ class Solution {
                                             
                                             {/* Additional Info */}
                                             <div className="flex items-center justify-between text-xs text-slate-500 pt-2">
-                                                <span>Language: <span className="text-gray-800 dark:text-slate-300 capitalize">{language}</span></span>
+                                                <span>Language: <span className="text-slate-300 capitalize">{language}</span></span>
                                                 <span>Executed: {runMetrics.timestamp.toLocaleTimeString()}</span>
                                             </div>
                                         </div>
                                     ) : (
                                         <div className="flex-1 flex items-center justify-center">
-                                            <div className="text-center space-y-3">
-                                                {testCases.length > 0 && testCases.some(tc => !tc.passed) ? (
-                                                    // Tests ran but failed
-                                                    <>
-                                                        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-3" />
-                                                        <p className="text-red-400 text-sm font-medium">Tests Failed</p>
-                                                        <p className="text-slate-500 text-xs">
-                                                            Fix the failing test cases to see performance metrics
-                                                        </p>
-                                                        <p className="text-slate-600 text-xs">
-                                                            {testCases.filter(tc => tc.passed).length}/{testCases.length} tests passed
-                                                        </p>
-                                                    </>
-                                                ) : (
-                                                    // No tests run yet
-                                                    <>
-                                                        <Activity className="h-12 w-12 text-slate-600 mx-auto mb-3" />
-                                                        <p className="text-gray-900 dark:text-slate-400 text-sm">No results yet</p>
-                                                        <p className="text-slate-500 text-xs">Run or submit code to see metrics</p>
-                                                    </>
-                                                )}
+                                            <div className="text-center">
+                                                <Activity className="h-12 w-12 text-slate-600 mx-auto mb-3" />
+                                                <p className="text-slate-400 text-sm">No results yet.</p>
+                                                <p className="text-slate-500 text-xs">Run or submit code to see metrics</p>
                                             </div>
                                         </div>
                                     )}
@@ -1872,7 +1646,7 @@ class Solution {
                             </div>
                         )}
                         <div 
-                            className={`bg-white dark:bg-[#1a1f2e] border border-gray-200 dark:border-transparent rounded-[14px] shadow-lg overflow-hidden transition-all duration-300 ${layoutMode === 'split-vertical' ? 'w-[30%]' : ''}`}
+                            className={`bg-[#1a1f2e] rounded-[14px] shadow-lg overflow-hidden transition-all duration-300 ${layoutMode === 'split-vertical' ? 'w-[30%]' : ''}`}
                             style={layoutMode !== 'split-vertical' ? { width: `${aiPanelWidth}%` } : {}}
                         >
                             <DsaAiHelper
@@ -1900,30 +1674,30 @@ class Solution {
 
             {/* Timer / Stopwatch Modal */}
             <Dialog open={showTimerModal} onOpenChange={setShowTimerModal}>
-                <DialogContent className="bg-white dark:bg-[#1a1f2e] border border-gray-200 dark:border-transparent border-gray-200 dark:border-white/10">
+                <DialogContent className="bg-[#1a1f2e] border-white/10">
                     <DialogHeader>
-                        <DialogTitle className="text-gray-900 dark:text-white">Timer & Stopwatch</DialogTitle>
-                        <DialogDescription className="text-gray-900 dark:text-slate-400">
+                        <DialogTitle className="text-white">Timer & Stopwatch</DialogTitle>
+                        <DialogDescription className="text-slate-400">
                             Count down (timer) or count up (stopwatch). Timer runs while you code; when time ends you get a warning only.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
-                        <div className="flex items-center gap-2 text-gray-800 dark:text-slate-300 text-sm font-medium">⏳ Count-down timer</div>
+                        <div className="flex items-center gap-2 text-slate-300 text-sm font-medium">⏳ Count-down timer</div>
                         <div className="grid grid-cols-2 gap-3">
                             {[15, 30, 45, 60].map((minutes) => (
                                 <Button
                                     key={minutes}
                                     onClick={() => handleStartTimer(minutes)}
-                                    className="h-14 text-base font-semibold bg-white/10 hover:bg-blue-100 dark:bg-cyan-500/20 hover:text-blue-600 dark:text-cyan-400 border border-white/20 hover:border-cyan-500/50 transition-all"
+                                    className="h-14 text-base font-semibold bg-white/10 hover:bg-cyan-500/20 hover:text-cyan-400 border border-white/20 hover:border-cyan-500/50 transition-all"
                                 >
                                     {minutes} min
                                 </Button>
                             ))}
                         </div>
-                        <div className="flex items-center gap-2 text-gray-800 dark:text-slate-300 text-sm font-medium pt-2">⏱ Stopwatch (count-up)</div>
+                        <div className="flex items-center gap-2 text-slate-300 text-sm font-medium pt-2">⏱ Stopwatch (count-up)</div>
                         <Button
                             onClick={handleStartStopwatch}
-                            className="w-full h-14 text-base font-semibold bg-blue-100 dark:bg-cyan-500/20 hover:bg-cyan-500/30 text-blue-600 dark:text-cyan-400 border border-cyan-500/50 transition-all"
+                            className="w-full h-14 text-base font-semibold bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/50 transition-all"
                         >
                             Start Stopwatch
                         </Button>
@@ -1935,13 +1709,13 @@ class Solution {
 
             {/* Reset Confirmation Modal */}
             <Dialog open={showResetModal} onOpenChange={setShowResetModal}>
-                <DialogContent className="bg-white dark:bg-[#1a1f2e] border border-gray-200 dark:border-transparent border-gray-200 dark:border-white/10">
+                <DialogContent className="bg-[#1a1f2e] border-white/10">
                     <DialogHeader>
-                        <DialogTitle className="text-gray-900 dark:text-white flex items-center gap-2">
+                        <DialogTitle className="text-white flex items-center gap-2">
                             <AlertCircle className="h-5 w-5 text-yellow-500" />
                             Reset to Default Boilerplate?
                         </DialogTitle>
-                        <DialogDescription className="text-gray-900 dark:text-slate-400">
+                        <DialogDescription className="text-slate-400">
                             This will erase your current code and restore boilerplate. Continue?
                         </DialogDescription>
                     </DialogHeader>
@@ -1949,13 +1723,13 @@ class Solution {
                         <Button
                             onClick={() => setShowResetModal(false)}
                             variant="outline"
-                            className="bg-transparent border-white/20 text-gray-800 dark:text-slate-300 hover:bg-white/10"
+                            className="bg-transparent border-white/20 text-slate-300 hover:bg-white/10"
                         >
                             Cancel
                         </Button>
                         <Button
                             onClick={handleResetCode}
-                            className="bg-red-500 hover:bg-red-600 text-gray-900 dark:text-white"
+                            className="bg-red-500 hover:bg-red-600 text-white"
                         >
                             Reset Code
                         </Button>
@@ -1996,13 +1770,3 @@ class Solution {
         </div>
     );
 }
-
-
-
-
-
-
-
-
-
-

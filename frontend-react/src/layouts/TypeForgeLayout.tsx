@@ -1,327 +1,226 @@
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { TypeForgeSidebar } from "@/components/typeforge/TypeForgeSidebar";
-import { ChevronLeft, Bell, User, LogOut, Menu, X, Sun, Moon } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { useTheme } from "@/contexts/ThemeContext";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useSupabaseAuth } from "@/contexts/SupabaseAuthContext";
 import { useState } from "react";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  LayoutDashboard,
+  Clock,
+  ChevronRight,
+  ChevronDown,
+  Users,
+  Keyboard,
+  Code2,
+  Sparkles,
+  Gamepad2,
+  Play,
+  ArrowLeft,
+  Sun,
+  Bell,
+  User,
+  StickyNote,
+  Calendar,
+  Menu,
+} from "lucide-react";
 
-export default function TypeForgeLayout() {
+const SIDEBAR_WIDTH = 240;
+const TOP_BAR_HEIGHT = 56;
+
+export function TypeForgeLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { theme, setTheme } = useTheme();
-  const { user, signOut } = useSupabaseAuth();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
-  
-  const handleLogout = async () => {
-    await signOut();
-    navigate('/');
-  };
+  const isTypeForge = location.pathname.startsWith("/typeforge");
+  const [typeForgeOpen, setTypeForgeOpen] = useState(true);
 
-  const handleBackClick = () => {
-    setShowLeaveDialog(true);
-  };
-
-  const handleLeaveConfirm = () => {
-    setShowLeaveDialog(false);
-    navigate(-1);
-  };
-
-  // Dynamic page title based on current route
-  const getPageTitle = () => {
-    const path = location.pathname;
-    
-    if (path === '/typeforge' || path === '/typeforge/') return 'Type Forge';
-    if (path.includes('/typeforge/code')) return 'Type Forge - Code';
-    if (path.includes('/typeforge/spells')) return 'Type Forge - Spells';
-    if (path.includes('/typeforge/astrotypes')) return 'Type Forge - Astro Types';
-    if (path === '/livecoding') return 'Live Coding';
-    
-    return 'Type Forge';
-  };
-
-  const userName = user?.user_metadata?.username || user?.email?.split('@')[0] || 'User';
-  const userEmail = user?.email || '';
+  const isCode = location.pathname === "/typeforge" || location.pathname === "/typeforge/code";
+  const isSpells = location.pathname === "/typeforge/spells";
+  const isFun = location.pathname === "/typeforge/fun";
+  const isLiveCoding = location.pathname === "/typeforge/live-coding";
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Top Header */}
-      <header className={cn(
-        "h-16 flex items-center justify-between px-6 border-b shrink-0 transition-colors duration-300 backdrop-blur-sm fixed top-0 left-0 right-0 z-50",
-        "border-slate-200 dark:border-white/10 bg-white/80 dark:bg-[#0B0F19]"
-      )}>
-         <div className="flex items-center gap-4">
-            {/* Sidebar Toggle Button */}
-            <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className={cn(
-                    "text-muted-foreground transition-colors",
-                     theme === 'pastel' ? "hover:bg-rose-100 hover:text-rose-900" : "hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10"
-                )}
-                title={isSidebarOpen ? "Hide sidebar" : "Show sidebar"}
-            >
-                {isSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </Button>
-            
-            <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={handleBackClick}
-                className={cn(
-                    "text-muted-foreground transition-colors",
-                    "hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10"
-                )}
-            >
-                <ChevronLeft className="h-6 w-6" />
-            </Button>
-            <h2 className={cn(
-                "text-xl font-semibold tracking-tight transition-colors",
-                "text-slate-900 dark:text-white"
-            )}>{getPageTitle()}</h2>
-         </div>
-         
-         <div className="flex items-center gap-4">
-            {/* Notification Bell */}
-            <Popover>
-                <PopoverTrigger asChild>
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className={cn(
-                            "text-muted-foreground relative transition-colors",
-                            "hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10"
-                        )}
-                    >
-                        <Bell className="h-5 w-5" />
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent 
-                    className={cn(
-                        "w-80 p-0 mr-4",
-                        "bg-white dark:bg-[#111625] border-slate-200 dark:border-white/10"
-                    )}
-                    align="end"
-                >
-                    <div className="p-8 text-center">
-                        <Bell className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-30" />
-                        <p className="text-sm text-muted-foreground">No notifications yet</p>
-                    </div>
-                </PopoverContent>
-            </Popover>
-            
-            {/* User Profile Dropdown */}
-            <Popover>
-                <PopoverTrigger asChild>
-                    {user ? (
-                        <button className="h-9 w-9 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 p-[2px] cursor-pointer hover:shadow-[0_0_15px_rgba(6,182,212,0.4)] transition-all">
-                            <div className={cn(
-                                "h-full w-full rounded-full flex items-center justify-center",
-                                "bg-[#0B0F19]"
-                            )}>
-                                <span className={cn(
-                                    "text-xs font-bold",
-                                    "text-white"
-                                )}>
-                                    {userName.charAt(0).toUpperCase()}
-                                </span>
-                            </div>
-                        </button>
-                    ) : (
-                        <button className="h-9 w-9 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 p-[1px] cursor-pointer hover:shadow-[0_0_15px_rgba(6,182,212,0.4)] transition-shadow">
-                            <div className="h-full w-full rounded-full bg-[#0B0F19] flex items-center justify-center">
-                                <User className="h-4 w-4 text-white" />
-                            </div>
-                        </button>
-                    )}
-                </PopoverTrigger>
-                <PopoverContent 
-                    className={cn(
-                        "w-64 p-0 mr-4",
-                        "bg-white dark:bg-[#111625] border-slate-200 dark:border-white/10"
-                    )}
-                    align="end"
-                >
-                    {user ? (
-                        <>
-                            <div className={cn(
-                                "p-4 border-b",
-                                "border-slate-200 dark:border-white/10"
-                            )}>
-                                <div className="flex items-center gap-3">
-                                    <div className="h-12 w-12 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 p-[2px]">
-                                        <div className={cn(
-                                            "h-full w-full rounded-full flex items-center justify-center",
-                                            "bg-[#0B0F19]"
-                                        )}>
-                                            <span className={cn(
-                                                "text-lg font-bold",
-                                                "text-white"
-                                            )}>
-                                                {userName.charAt(0).toUpperCase()}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className={cn(
-                                            "font-semibold text-sm truncate",
-                                            "text-slate-900 dark:text-white"
-                                        )}>
-                                            {userName}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground truncate">
-                                            {userEmail}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="py-2">
-                                <button
-                                    onClick={() => navigate('/profile')}
-                                    className={cn(
-                                        "w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors",
-                                        "hover:bg-slate-100 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300"
-                                    )}
-                                >
-                                    <User className="h-4 w-4" />
-                                    <span>View Profile</span>
-                                </button>
-                            </div>
-
-                            {/* Theme Selector */}
-                            <div className={cn(
-                                "border-t py-3 px-4",
-                                "border-slate-200 dark:border-white/10"
-                            )}>
-                                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Theme</p>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => setTheme('light')}
-                                        className={cn(
-                                            "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
-                                            theme === 'light'
-                                                ? "bg-cyan-500/20 border-2 border-cyan-500 text-cyan-600 dark:text-cyan-400"
-                                                : "bg-slate-100 dark:bg-gray-800 border-2 border-transparent hover:border-slate-300 dark:hover:border-gray-600 text-slate-700 dark:text-slate-300"
-                                        )}
-                                    >
-                                        <Sun className="h-4 w-4" />
-                                        <span>Light</span>
-                                    </button>
-                                    <button
-                                        onClick={() => setTheme('dark')}
-                                        className={cn(
-                                            "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
-                                            theme === 'dark'
-                                                ? "bg-cyan-500/20 border-2 border-cyan-500 text-cyan-600 dark:text-cyan-400"
-                                                : "bg-slate-100 dark:bg-gray-800 border-2 border-transparent hover:border-slate-300 dark:hover:border-gray-600 text-slate-700 dark:text-slate-300"
-                                        )}
-                                    >
-                                        <Moon className="h-4 w-4" />
-                                        <span>Dark</span>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className={cn(
-                                "border-t py-2",
-                                "border-slate-200 dark:border-white/10"
-                            )}>
-                                <button
-                                    onClick={handleLogout}
-                                    className={cn(
-                                        "w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-red-600 dark:text-red-400",
-                                        "hover:bg-red-50 dark:hover:bg-red-500/10"
-                                    )}
-                                >
-                                    <LogOut className="h-4 w-4" />
-                                    <span>Logout</span>
-                                </button>
-                            </div>
-                        </>
-                    ) : (
-                        <div className="p-4">
-                            <p className="text-sm text-muted-foreground mb-4">Sign in to access your profile</p>
-                            <div className="space-y-2">
-                                <Button 
-                                    onClick={() => navigate('/login')}
-                                    className="w-full"
-                                    size="sm"
-                                >
-                                    Login
-                                </Button>
-                                <Button 
-                                    onClick={() => navigate('/signup')}
-                                    variant="outline"
-                                    className="w-full"
-                                    size="sm"
-                                >
-                                    Sign Up
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-                </PopoverContent>
-            </Popover>
-         </div>
+    <div className="min-h-screen flex flex-col bg-background text-foreground transition-[width] duration-150 font-sans">
+      {/* Fixed top bar */}
+      <header
+        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between border-b border-border bg-background"
+        style={{ height: TOP_BAR_HEIGHT, padding: "0 24px" }}
+      >
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="p-1.5 rounded-lg transition-colors hover:opacity-80 text-foreground"
+            aria-label="Back"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <span className="text-base font-semibold text-foreground">
+            Type Forge
+          </span>
+        </div>
+        <div className="flex items-center gap-4">
+          <button type="button" className="p-2 rounded-lg transition-colors hover:opacity-80 text-muted-foreground" aria-label="Theme">
+            <Sun className="h-5 w-5" />
+          </button>
+          <button type="button" className="p-2 rounded-lg transition-colors hover:opacity-80 text-muted-foreground" aria-label="Notifications">
+            <Bell className="h-5 w-5" />
+          </button>
+          <button type="button" className="p-2 rounded-lg transition-colors hover:opacity-80 text-muted-foreground" aria-label="Profile">
+            <User className="h-5 w-5" />
+          </button>
+        </div>
       </header>
-      
-      {/* Background Layer */}
-      <div className="fixed inset-0 -z-10">
-        <div className="absolute inset-0 theme-bg-primary" />
-        <div className="absolute inset-0 cyber-grid" />
-      </div>
 
-      <div className="flex flex-1 pt-16">
-        {/* Sidebar */}
-        {isSidebarOpen && <TypeForgeSidebar />}
-        
-        {/* Main Content Area */}
-        <main className={cn(
-          "flex-1 overflow-auto transition-all duration-300",
-          isSidebarOpen ? "ml-72" : "ml-0"
-        )}>
-          <Outlet />
+      <div className="flex flex-1" style={{ paddingTop: TOP_BAR_HEIGHT }}>
+        {/* Fixed left sidebar */}
+        <aside
+          className="fixed left-0 bottom-0 z-40 flex flex-col border-r border-border bg-card text-card-foreground transition-[width] duration-150"
+          style={{
+            top: TOP_BAR_HEIGHT,
+            width: SIDEBAR_WIDTH,
+            padding: "16px 12px",
+          }}
+        >
+          <div className="flex-1 overflow-y-auto">
+            <div className="font-semibold mb-6 text-foreground">
+              TMAI
+            </div>
+
+            <nav>
+              <Link
+                to="/"
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 mb-1.5",
+                  !isTypeForge ? "bg-muted text-primary" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <LayoutDashboard className="h-4 w-4 shrink-0" />
+                <span>Dashboard</span>
+              </Link>
+
+              <Link
+                to="/dsa/problems"
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 mb-1.5",
+                  location.pathname.startsWith("/dsa") && !isTypeForge ? "bg-muted text-primary" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Clock className="h-4 w-4 shrink-0" />
+                <span>DSA Practice</span>
+                <ChevronRight className="h-3.5 w-3.5 ml-auto text-muted-foreground" />
+              </Link>
+
+              <Link
+                to="/dsa/duels"
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 mb-1.5",
+                  location.pathname.startsWith("/dsa/duels") ? "bg-muted text-primary" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Users className="h-4 w-4 shrink-0" />
+                <span>1v1 Code Arena</span>
+              </Link>
+
+              <div className="mb-1.5">
+                <button
+                  type="button"
+                  onClick={() => setTypeForgeOpen(!typeForgeOpen)}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium w-full transition-all duration-150",
+                    isTypeForge ? "bg-muted text-primary" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Keyboard className={cn("h-4 w-4 shrink-0", isTypeForge && "text-primary")} />
+                  <span>Type Forge</span>
+                  {typeForgeOpen ? (
+                    <ChevronDown className="h-3.5 w-3.5 ml-auto text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5 ml-auto text-muted-foreground" />
+                  )}
+                </button>
+                {typeForgeOpen && (
+                  <div className="mt-2 space-y-0">
+                    <Link
+                      to="/typeforge/code"
+                      className={cn(
+                        "flex items-center gap-2 text-sm font-medium transition-all duration-150 rounded-lg py-2 pl-5",
+                        isCode ? "text-primary border border-primary rounded-lg my-2" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <Code2 className="h-3.5 w-3.5" />
+                      Code
+                    </Link>
+                    <Link
+                      to="/typeforge/spells"
+                      className={cn(
+                        "flex items-center gap-2 text-sm font-medium transition-all duration-150 rounded-lg py-2 pl-5",
+                        isSpells ? "text-primary border border-primary rounded-lg my-2" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Spells
+                    </Link>
+                    <Link
+                      to="/typeforge/fun"
+                      className={cn(
+                        "flex items-center gap-2 text-sm font-medium transition-all duration-150 rounded-lg py-2 pl-5",
+                        isFun ? "text-primary border border-primary rounded-lg my-2" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <Gamepad2 className="h-3.5 w-3.5" />
+                      Fun
+                    </Link>
+                  </div>
+                )}
+              </div>
+
+              <Link
+                to="/typeforge/live-coding"
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150",
+                  isLiveCoding ? "bg-muted text-primary" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Play className="h-4 w-4 shrink-0" />
+                <span>Live Coding</span>
+              </Link>
+            </nav>
+          </div>
+
+          <div className="h-12 grid grid-cols-3 shrink-0 border-t border-border">
+            <Link
+              to="/dsa/profile"
+              className="flex items-center justify-center transition-colors hover:opacity-80 text-muted-foreground border-r border-border"
+              title="Profile & Notes"
+            >
+              <StickyNote className="h-4 w-4" />
+            </Link>
+            <Link
+              to="/dsa/calendar"
+              className="flex items-center justify-center transition-colors hover:opacity-80 text-muted-foreground border-r border-border"
+              title="Calendar"
+            >
+              <Calendar className="h-4 w-4" />
+            </Link>
+            <button
+              type="button"
+              className="flex items-center justify-center transition-colors hover:opacity-80 text-muted-foreground"
+              title="Menu"
+            >
+              <Menu className="h-4 w-4" />
+            </button>
+          </div>
+        </aside>
+
+        {/* Main content — padding 32px 64px, maxWidth 1200 */}
+        <main
+          className="flex-1 flex flex-col min-h-0 bg-background"
+          style={{ marginLeft: SIDEBAR_WIDTH }}
+        >
+          <div className="flex-1 w-full mx-auto min-h-0" style={{ maxWidth: 1200, padding: "32px 64px" }}>
+            <Outlet />
+          </div>
         </main>
       </div>
-
-      {/* Leave Confirmation Dialog */}
-      <AlertDialog open={showLeaveDialog} onOpenChange={setShowLeaveDialog}>
-        <AlertDialogContent className={cn(
-          theme === 'pastel' 
-            ? "bg-white border-rose-100" 
-            : "bg-white dark:bg-[#111625] border-slate-200 dark:border-white/10"
-        )}>
-          <AlertDialogHeader>
-            <AlertDialogTitle className={cn(
-              theme === 'pastel' ? "text-slate-800" : "text-slate-900 dark:text-white"
-            )}>
-              Leave this page?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to leave?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Stay</AlertDialogCancel>
-            <AlertDialogAction onClick={handleLeaveConfirm}>Leave</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
+
+export default TypeForgeLayout;

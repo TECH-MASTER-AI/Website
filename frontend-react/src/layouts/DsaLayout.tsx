@@ -1,26 +1,17 @@
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { DsaSidebar } from "@/components/dsa/DsaSidebar";
 import { DsaFilterProvider } from "@/contexts/DsaFilterContext";
-import { ChevronLeft, Bell, User, LogOut, Menu, X, Sun, Moon } from "lucide-react";
+import { ChevronLeft, Bell, User, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useState, useEffect } from "react";
-import { getProfilePhoto } from "@/features/dsa/profile/dsaProfileStore";
-import { useSupabaseAuth } from "@/contexts/SupabaseAuthContext";
-import { addDuelLoss } from "@/features/dsa/duels/duelRating";
 import { toast } from "sonner";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ThemeSelector } from "@/components/ThemeSelector";
+import { getProfilePhoto } from "@/features/dsa/profile/dsaProfileStore";
+import { useDsaAuth } from "@/features/dsa/auth/DsaAuthContext";
 
 /**
  * Global layout for DSA Practice section: Custom Header, Sidebar, Main Content.
@@ -28,96 +19,40 @@ import {
 export function DsaLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { theme, setTheme } = useTheme();
-  const { user, signOut } = useSupabaseAuth();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
-
-  // Comprehensive protection against copy/paste/screenshot
-  useEffect(() => {
-    // Prevent copy, cut, paste
-    const preventCopyPaste = (e: ClipboardEvent) => {
-      e.preventDefault();
-      toast.error('Copy/Paste is disabled in this section');
-      return false;
-    };
-
-    // Prevent keyboard shortcuts
-    const preventKeyboardShortcuts = (e: KeyboardEvent) => {
-      // Prevent Ctrl+C, Ctrl+V, Ctrl+A, Ctrl+X, Ctrl+S, Ctrl+P
-      if (e.ctrlKey || e.metaKey) {
-        if (['c', 'v', 'a', 'x', 's', 'p'].includes(e.key.toLowerCase())) {
-          e.preventDefault();
-          toast.error('This action is disabled');
-          return false;
-        }
-      }
-      
-      // Prevent PrintScreen, F12 (DevTools)
-      if (e.key === 'PrintScreen' || e.keyCode === 44 || e.key === 'F12') {
-        e.preventDefault();
-        toast.error('Screenshots are disabled');
-        return false;
-      }
-    };
-
-    // Prevent right-click context menu
-    const preventContextMenu = (e: MouseEvent) => {
-      e.preventDefault();
-      toast.error('Right-click is disabled');
-      return false;
-    };
-
-    // Prevent drag and drop
-    const preventDragDrop = (e: DragEvent) => {
-      e.preventDefault();
-      return false;
-    };
-
-    // Add event listeners
-    document.addEventListener('copy', preventCopyPaste);
-    document.addEventListener('cut', preventCopyPaste);
-    document.addEventListener('paste', preventCopyPaste);
-    document.addEventListener('keydown', preventKeyboardShortcuts);
-    document.addEventListener('contextmenu', preventContextMenu);
-    document.addEventListener('dragstart', preventDragDrop);
-
-    // Cleanup
-    return () => {
-      document.removeEventListener('copy', preventCopyPaste);
-      document.removeEventListener('cut', preventCopyPaste);
-      document.removeEventListener('paste', preventCopyPaste);
-      document.removeEventListener('keydown', preventKeyboardShortcuts);
-      document.removeEventListener('contextmenu', preventContextMenu);
-      document.removeEventListener('dragstart', preventDragDrop);
-    };
-  }, []);
+  const { theme } = useTheme();
   
-  const handleLogout = async () => {
-    await signOut();
-    navigate('/');
-  };
+  const { user: dsaUser, firebaseUser, logout: dsaLogout } = useDsaAuth();
+  const [legacyUser, setLegacyUser] = useState<{ name: string; email: string; photo?: string } | null>(null);
 
-  const handleBackClick = () => {
-    // Only show leave dialog for duel rooms and problem detail pages
-    if (location.pathname.startsWith('/dsa/duels/room/') || location.pathname.startsWith('/dsa/problem/')) {
-      setShowLeaveDialog(true);
+  useEffect(() => {
+    const userStr = localStorage.getItem('techmasterai_user');
+    if (userStr) {
+      try {
+        setLegacyUser(JSON.parse(userStr));
+      } catch {
+        setLegacyUser(null);
+      }
     } else {
-      // Direct navigation for other pages
-      navigate(-1);
+      setLegacyUser(null);
     }
-  };
+    const onStorage = () => {
+      const s = localStorage.getItem('techmasterai_user');
+      setLegacyUser(s ? JSON.parse(s) : null);
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
-  const handleLeaveConfirm = async () => {
-    setShowLeaveDialog(false);
-    
-    // If leaving from Code Royale duel room, apply -5 points penalty
-    if (location.pathname.startsWith('/dsa/duels/room/')) {
-      await addDuelLoss('Left duel');
-      toast.error('💔 You left the duel! -5 points penalty applied.');
-    }
-    
-    navigate(-1);
+  const currentUser = dsaUser
+    ? { name: dsaUser.username, email: dsaUser.email, photo: undefined }
+    : legacyUser;
+
+  const handleLogout = async () => {
+    localStorage.removeItem('techmasterai_admin');
+    localStorage.removeItem('techmasterai_user');
+    if (dsaUser) await dsaLogout();
+    toast.success('Logged out successfully');
+    navigate('/');
   };
   
   // Sample notifications - replace with real data
@@ -135,39 +70,12 @@ export function DsaLayout() {
   ]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
-  const profilePhoto = user ? getProfilePhoto() : null;
-  const userName = user?.user_metadata?.username || user?.email?.split('@')[0] || 'User';
-  const userEmail = user?.email || '';
+  const profilePhoto = currentUser
+    ? (getProfilePhoto() || firebaseUser?.photoURL || currentUser.photo)
+    : null;
 
   const markAllAsRead = () => {
     setNotifications(notifications.map(n => ({ ...n, read: true })));
-  };
-
-  // Dynamic page title based on current route
-  const getPageTitle = () => {
-    const path = location.pathname;
-    
-    if (path === '/dsa/dashboard') return 'Dashboard';
-    if (path === '/dsa/problems' || path.startsWith('/dsa/problem/')) return 'Flow State';
-    if (path === '/dsa/leaderboard') return 'Leaderboard';
-    // Check for duel room first (more specific), then duels lobby
-    if (path.startsWith('/dsa/duels/room/')) return 'Code Royale';
-    if (path === '/dsa/duels' || path.startsWith('/dsa/duels')) return 'Code Royale';
-    if (path === '/dsa/profile') return 'Profile';
-    if (path === '/dsa/calendar') return 'Calendar';
-    if (path === '/dsa/notes') return 'Notes';
-    if (path === '/dsa/submissions') return 'Submissions';
-    if (path === '/dsa/daily-challenge') return 'Daily Challenge';
-    if (path === '/dsa/solo-challenge') return 'Solo Challenge';
-    if (path.startsWith('/typeforge')) {
-      if (path.includes('/code')) return 'Type Forge - Code';
-      if (path.includes('/spells')) return 'Type Forge - Spells';
-      if (path.includes('/fun')) return 'Type Forge - Fun';
-      if (path.includes('/live-coding')) return 'Live Coding';
-      return 'Type Forge';
-    }
-    
-    return 'Flow State'; // Default fallback
   };
 
 
@@ -175,7 +83,7 @@ export function DsaLayout() {
     <DsaFilterProvider>
       <div className={cn(
         "min-h-screen max-h-screen flex flex-col overflow-hidden relative selection:bg-cyan-500/30 selection:text-cyan-200 transition-colors duration-300",
-        "bg-slate-50 dark:bg-[#0B0F19]"
+        theme === 'pastel' ? "bg-[#FFF0F5]" : "bg-slate-50 dark:bg-[#0B0F19]"
       )}>
         {/* Galaxy/Cyber Background - visible only in dark mode */}
         <div className="fixed inset-0 z-0 pointer-events-none opacity-0 dark:opacity-100 transition-opacity duration-300">
@@ -185,47 +93,45 @@ export function DsaLayout() {
           <div className="absolute -bottom-[20%] -right-[10%] w-[50%] h-[50%] rounded-full bg-cyan-500/10 blur-[120px]" />
         </div>
 
+        {/* Pastel Background Gradients using CSS for smoothness */}
+        {theme === 'pastel' && (
+           <div className="fixed inset-0 z-0 pointer-events-none">
+              <div className="absolute inset-0 bg-gradient-to-br from-rose-50 via-purple-50 to-blue-50 opacity-80" />
+              <div className="absolute -top-[10%] -left-[10%] w-[60%] h-[60%] rounded-full bg-pink-200/20 blur-[100px]" />
+              <div className="absolute top-[20%] right-[10%] w-[40%] h-[40%] rounded-full bg-purple-200/20 blur-[100px]" />
+           </div>
+        )}
+
         <div className="relative z-10 flex flex-col h-screen overflow-hidden">
           {/* New Top Header Matching Design */}
           <header className={cn(
             "h-16 flex items-center justify-between px-6 border-b shrink-0 transition-colors duration-300 backdrop-blur-sm",
-            "border-slate-200 dark:border-white/10 bg-white/80 dark:bg-[#0B0F19]"
+            theme === 'pastel' 
+                ? "bg-white/60 border-rose-100" 
+                : "border-slate-200 dark:border-white/10 bg-white/80 dark:bg-[#0B0F19]"
           )}>
              <div className="flex items-center gap-4">
-                {/* Sidebar Toggle Button - Hide on duel room */}
-                {!location.pathname.startsWith("/dsa/duels/room/") && (
-                  <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                      className={cn(
-                          "text-muted-foreground transition-colors",
-                          "hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10"
-                      )}
-                      title={isSidebarOpen ? "Hide sidebar" : "Show sidebar"}
-                  >
-                      {isSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-                  </Button>
-                )}
-                
                 <Button 
                     variant="ghost" 
                     size="icon" 
-                    onClick={handleBackClick}
+                    onClick={() => navigate(-1)}
                     className={cn(
                         "text-muted-foreground transition-colors",
-                        "hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10"
+                         theme === 'pastel' ? "hover:bg-rose-100 hover:text-rose-900" : "hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10"
                     )}
                 >
                     <ChevronLeft className="h-6 w-6" />
                 </Button>
                 <h2 className={cn(
                     "text-xl font-semibold tracking-tight transition-colors",
-                    "text-slate-900 dark:text-white"
-                )}>{getPageTitle()}</h2>
+                    theme === 'pastel' ? "text-slate-800" : "text-slate-900 dark:text-white"
+                )}>DSA Practice</h2>
              </div>
              
              <div className="flex items-center gap-4">
+                 {/* Theme Selector - Three options in a row */}
+                 <ThemeSelector />
+
                 {/* Notification Bell with Popover */}
                 <Popover>
                     <PopoverTrigger asChild>
@@ -234,14 +140,14 @@ export function DsaLayout() {
                             size="icon" 
                             className={cn(
                                 "text-muted-foreground relative transition-colors",
-                                "hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10"
+                                theme === 'pastel' ? "hover:bg-rose-100 hover:text-rose-900" : "hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10"
                             )}
                         >
                             <Bell className="h-5 w-5" />
                             {unreadCount > 0 && (
                                 <span className={cn(
                                     "absolute top-2 right-2 h-2 w-2 rounded-full border animate-pulse",
-                                    "bg-red-500 border-white dark:border-[#0B0F19]"
+                                    theme === 'pastel' ? "bg-rose-400 border-white" : "bg-red-500 border-white dark:border-[#0B0F19]"
                                 )} />
                             )}
                         </Button>
@@ -249,17 +155,19 @@ export function DsaLayout() {
                     <PopoverContent 
                         className={cn(
                             "w-80 p-0 mr-4",
-                            "bg-white dark:bg-[#111625] border-slate-200 dark:border-white/10"
+                            theme === 'pastel' 
+                                ? "bg-white border-rose-100" 
+                                : "bg-white dark:bg-[#111625] border-slate-200 dark:border-white/10"
                         )}
                         align="end"
                     >
                         <div className={cn(
                             "flex items-center justify-between p-4 border-b",
-                            "border-slate-200 dark:border-white/10"
+                            theme === 'pastel' ? "border-rose-100" : "border-slate-200 dark:border-white/10"
                         )}>
                             <h3 className={cn(
                                 "font-semibold text-sm",
-                                "text-slate-900 dark:text-white"
+                                theme === 'pastel' ? "text-slate-800" : "text-slate-900 dark:text-white"
                             )}>
                                 Notifications {unreadCount > 0 && `(${unreadCount})`}
                             </h3>
@@ -268,7 +176,7 @@ export function DsaLayout() {
                                     onClick={markAllAsRead}
                                     className={cn(
                                         "text-xs font-medium transition-colors",
-                                        "text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300"
+                                        theme === 'pastel' ? "text-rose-600 hover:text-rose-700" : "text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300"
                                     )}
                                 >
                                     Mark all read
@@ -288,21 +196,23 @@ export function DsaLayout() {
                                         key={notification.id}
                                         className={cn(
                                             "p-4 border-b transition-colors cursor-pointer",
-                                            "border-slate-100 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5",
-                                            !notification.read && "bg-cyan-50/50 dark:bg-cyan-500/5"
+                                            theme === 'pastel' 
+                                                ? "border-rose-50 hover:bg-rose-50" 
+                                                : "border-slate-100 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5",
+                                            !notification.read && (theme === 'pastel' ? "bg-rose-50/50" : "bg-cyan-50/50 dark:bg-cyan-500/5")
                                         )}
                                     >
                                         <div className="flex items-start gap-3">
                                             {!notification.read && (
                                                 <div className={cn(
                                                     "h-2 w-2 rounded-full mt-1.5 shrink-0",
-                                                    "bg-cyan-500"
+                                                    theme === 'pastel' ? "bg-rose-400" : "bg-cyan-500"
                                                 )} />
                                             )}
                                             <div className="flex-1 min-w-0">
                                                 <p className={cn(
                                                     "text-sm font-medium mb-1",
-                                                    "text-slate-900 dark:text-white"
+                                                    theme === 'pastel' ? "text-slate-800" : "text-slate-900 dark:text-white"
                                                 )}>
                                                     {notification.title}
                                                 </p>
@@ -324,24 +234,24 @@ export function DsaLayout() {
                 {/* User Profile Dropdown */}
                 <Popover>
                     <PopoverTrigger asChild>
-                        {user ? (
+                        {currentUser ? (
                             <button className="h-9 w-9 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 p-[2px] cursor-pointer hover:shadow-[0_0_15px_rgba(6,182,212,0.4)] transition-all">
                                 {profilePhoto ? (
                                     <img 
                                         src={profilePhoto} 
-                                        alt={userName}
+                                        alt={currentUser.name}
                                         className="h-full w-full rounded-full object-cover"
                                     />
                                 ) : (
                                     <div className={cn(
                                         "h-full w-full rounded-full flex items-center justify-center",
-                                        "bg-[#0B0F19]"
+                                        theme === 'pastel' ? "bg-rose-100" : "bg-[#0B0F19]"
                                     )}>
                                         <span className={cn(
                                             "text-xs font-bold",
-                                            "text-white"
+                                            theme === 'pastel' ? "text-rose-700" : "text-white"
                                         )}>
-                                            {userName.charAt(0).toUpperCase()}
+                                            {currentUser.name.charAt(0).toUpperCase()}
                                         </span>
                                     </div>
                                 )}
@@ -357,35 +267,37 @@ export function DsaLayout() {
                     <PopoverContent 
                         className={cn(
                             "w-64 p-0 mr-4",
-                            "bg-white dark:bg-[#111625] border-slate-200 dark:border-white/10"
+                            theme === 'pastel' 
+                                ? "bg-white border-rose-100" 
+                                : "bg-white dark:bg-[#111625] border-slate-200 dark:border-white/10"
                         )}
                         align="end"
                     >
-                        {user ? (
+                        {currentUser ? (
                             <>
                                 {/* User Info */}
                                 <div className={cn(
                                     "p-4 border-b",
-                                    "border-slate-200 dark:border-white/10"
+                                    theme === 'pastel' ? "border-rose-100" : "border-slate-200 dark:border-white/10"
                                 )}>
                                     <div className="flex items-center gap-3">
                                         <div className="h-12 w-12 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 p-[2px]">
                                             {profilePhoto ? (
                                                 <img 
                                                     src={profilePhoto} 
-                                                    alt={userName}
+                                                    alt={currentUser.name}
                                                     className="h-full w-full rounded-full object-cover"
                                                 />
                                             ) : (
                                                 <div className={cn(
                                                     "h-full w-full rounded-full flex items-center justify-center",
-                                                    "bg-[#0B0F19]"
+                                                    theme === 'pastel' ? "bg-rose-100" : "bg-[#0B0F19]"
                                                 )}>
                                                     <span className={cn(
                                                         "text-lg font-bold",
-                                                        "text-white"
+                                                        theme === 'pastel' ? "text-rose-700" : "text-white"
                                                     )}>
-                                                        {userName.charAt(0).toUpperCase()}
+                                                        {currentUser.name.charAt(0).toUpperCase()}
                                                     </span>
                                                 </div>
                                             )}
@@ -393,12 +305,12 @@ export function DsaLayout() {
                                         <div className="flex-1 min-w-0">
                                             <p className={cn(
                                                 "font-semibold text-sm truncate",
-                                                "text-slate-900 dark:text-white"
+                                                theme === 'pastel' ? "text-slate-800" : "text-slate-900 dark:text-white"
                                             )}>
-                                                {userName}
+                                                {currentUser.name}
                                             </p>
                                             <p className="text-xs text-muted-foreground truncate">
-                                                {userEmail}
+                                                {currentUser.email}
                                             </p>
                                         </div>
                                     </div>
@@ -410,7 +322,9 @@ export function DsaLayout() {
                                         onClick={() => navigate('/dsa/profile')}
                                         className={cn(
                                             "w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors",
-                                            "hover:bg-slate-100 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300"
+                                            theme === 'pastel' 
+                                                ? "hover:bg-rose-50 text-slate-700" 
+                                                : "hover:bg-slate-100 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300"
                                         )}
                                     >
                                         <User className="h-4 w-4" />
@@ -418,50 +332,18 @@ export function DsaLayout() {
                                     </button>
                                 </div>
 
-                                {/* Theme Selector */}
-                                <div className={cn(
-                                    "border-t py-3 px-4",
-                                    "border-slate-200 dark:border-white/10"
-                                )}>
-                                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Theme</p>
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={() => setTheme('light')}
-                                            className={cn(
-                                                "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
-                                                theme === 'light'
-                                                    ? "bg-cyan-500/20 border-2 border-cyan-500 text-cyan-600 dark:text-cyan-400"
-                                                    : "bg-slate-100 dark:bg-gray-800 border-2 border-transparent hover:border-slate-300 dark:hover:border-gray-600 text-slate-700 dark:text-slate-300"
-                                            )}
-                                        >
-                                            <Sun className="h-4 w-4" />
-                                            <span>Light</span>
-                                        </button>
-                                        <button
-                                            onClick={() => setTheme('dark')}
-                                            className={cn(
-                                                "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
-                                                theme === 'dark'
-                                                    ? "bg-cyan-500/20 border-2 border-cyan-500 text-cyan-600 dark:text-cyan-400"
-                                                    : "bg-slate-100 dark:bg-gray-800 border-2 border-transparent hover:border-slate-300 dark:hover:border-gray-600 text-slate-700 dark:text-slate-300"
-                                            )}
-                                        >
-                                            <Moon className="h-4 w-4" />
-                                            <span>Dark</span>
-                                        </button>
-                                    </div>
-                                </div>
-
                                 {/* Logout */}
                                 <div className={cn(
                                     "border-t py-2",
-                                    "border-slate-200 dark:border-white/10"
+                                    theme === 'pastel' ? "border-rose-100" : "border-slate-200 dark:border-white/10"
                                 )}>
                                     <button
                                         onClick={handleLogout}
                                         className={cn(
                                             "w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-red-600 dark:text-red-400",
-                                            "hover:bg-red-50 dark:hover:bg-red-500/10"
+                                            theme === 'pastel' 
+                                                ? "hover:bg-rose-50" 
+                                                : "hover:bg-red-50 dark:hover:bg-red-500/10"
                                         )}
                                     >
                                         <LogOut className="h-4 w-4" />
@@ -496,66 +378,19 @@ export function DsaLayout() {
              </div>
           </header>
 
-          <div className="flex flex-1 overflow-hidden">
-            {!location.pathname.startsWith("/dsa/problem/") && !location.pathname.startsWith("/dsa/duels/room/") && isSidebarOpen && <DsaSidebar />}
+          <div className="flex flex-1 min-h-0 overflow-hidden">
+            {!location.pathname.startsWith("/dsa/problem/") && <DsaSidebar />}
             <main className={cn(
-              "flex-1 flex flex-col min-w-0 overflow-y-auto transition-all duration-300",
-              !location.pathname.startsWith("/dsa/problem/") && !location.pathname.startsWith("/dsa/duels/room/") && isSidebarOpen ? "ml-72" : "ml-0"
+              "flex-1 flex flex-col min-w-0 min-h-0 overflow-y-auto overflow-x-hidden",
+              !location.pathname.startsWith("/dsa/problem/") && "ml-72"
             )}>
-              <Outlet />
+              <div className="flex-1 flex flex-col min-h-[60vh] w-full">
+                <Outlet />
+              </div>
             </main>
           </div>
           
         </div>
-
-        {/* Leave Confirmation Dialog */}
-        <AlertDialog open={showLeaveDialog} onOpenChange={setShowLeaveDialog}>
-          <AlertDialogContent className={cn(
-            "bg-white dark:bg-[#111625] border-slate-200 dark:border-white/10"
-          )}>
-            <AlertDialogHeader>
-              <AlertDialogTitle className={cn(
-                "text-slate-900 dark:text-white"
-              )}>
-                Leave this page?
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                {location.pathname.startsWith('/dsa/duels/room/') 
-                  ? "Are you sure you want to leave? You'll lose this duel and -5 points will be deducted."
-                  : "Are you sure you want to leave?"}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Stay</AlertDialogCancel>
-              <AlertDialogAction onClick={handleLeaveConfirm}>Leave</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* CSS Protection - Prevent text selection and screenshots */}
-        <style>{`
-          body {
-            user-select: none !important;
-            -webkit-user-select: none !important;
-            -moz-user-select: none !important;
-            -ms-user-select: none !important;
-          }
-          
-          * {
-            user-select: none !important;
-            -webkit-user-select: none !important;
-            -moz-user-select: none !important;
-            -ms-user-select: none !important;
-          }
-          
-          /* Allow selection only in input fields and Monaco editor */
-          input, textarea, [contenteditable="true"], .monaco-editor, .monaco-editor * {
-            user-select: text !important;
-            -webkit-user-select: text !important;
-            -moz-user-select: text !important;
-            -ms-user-select: text !important;
-          }
-        `}</style>
       </div>
     </DsaFilterProvider>
   );

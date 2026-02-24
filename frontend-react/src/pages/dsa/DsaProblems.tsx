@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,21 +10,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, CheckCircle2, Circle, Flame, Star, ChevronDown, Minus, Sparkles } from "lucide-react";
-import { fetchDsaQuestions } from "@/features/dsa/api/questions";
+import { Search, CheckCircle2, Circle, Mic, Flame, Star, ChevronDown, Minus, Sparkles } from "lucide-react";
+import { fetchDsaQuestions, DsaApiError } from "@/features/dsa/api/questions";
+import { getDsaProblemList } from "@/data/dsaProblems";
 import { useDsaFilter } from "@/contexts/DsaFilterContext";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useTheme } from "@/contexts/ThemeContext";
-import { supabase } from "@/lib/supabase";
-import { useSupabaseAuth } from "@/contexts/SupabaseAuthContext";
 import { 
   getRecommendedProblems, 
   getUserActivityWithProblems,
   calculateSkillLevel,
   getRecommendedDistribution 
 } from "@/utils/recommendationEngine";
-import { getAllProblemsSuccessRates, type ProblemSuccessRate } from "@/features/dsa/api/successRate";
 
 type Difficulty = "Easy" | "Medium" | "Hard";
 
@@ -38,13 +36,6 @@ interface ProblemRow {
 
 export default function DsaProblems() {
   const navigate = useNavigate();
-  const { user } = useSupabaseAuth(); // Use unified Supabase auth
-  
-  // Debug logging
-  useEffect(() => {
-    console.log('🔍 DsaProblems: Current user from context:', user?.id);
-  }, [user]);
-  
   const { 
     search, setSearch, 
     difficulty,
@@ -62,71 +53,72 @@ export default function DsaProblems() {
   const [recommendedProblems, setRecommendedProblems] = useState<ProblemRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [useFallbackList, setUseFallbackList] = useState(false);
   const [userSkillLevel, setUserSkillLevel] = useState<"beginner" | "intermediate" | "advanced">("beginner");
   
-  // Real-time success rates
-  const [successRates, setSuccessRates] = useState<Map<string, ProblemSuccessRate>>(new Map());
-  
-  // Load solved problems from Supabase database
-  const [solvedProblems, setSolvedProblems] = useState<Set<string>>(new Set());
+  // Load solved problems from localStorage
+  const [solvedProblems, setSolvedProblems] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem('dsa_solved_problems');
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
 
-  // Load attempted problems from localStorage (for now)
+  // Load attempted problems from localStorage
   const [attemptedProblems, setAttemptedProblems] = useState<Set<string>>(() => {
     const saved = localStorage.getItem('dsa_attempted_problems');
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
 
-  // Fetch problems from API
-  useEffect(() => {
-    const loadProblems = async () => {
-      try {
-        setLoading(true);
-        const data = await fetchDsaQuestions();
-        setProblems(data.items);
-        
-        // Load real-time success rates
-        const rates = await getAllProblemsSuccessRates();
-        setSuccessRates(rates);
-        
-        // Fetch solved problems from database using DSA auth context
-        if (user) {
-          console.log('🔍 Fetching solved problems for user:', user.id);
-          const { data: submissions, error: submissionsError } = await supabase
-            .from('dsa_submissions')
-            .select('problem_id')
-            .eq('user_id', user.id)
-            .eq('status', 'accepted');
-          
-          console.log('📊 Submissions query result:', { submissions, submissionsError });
-          
-          if (submissions) {
-            const solvedSlugs = new Set(submissions.map(s => s.problem_id));
-            console.log('✅ Solved problems:', Array.from(solvedSlugs));
-            setSolvedProblems(solvedSlugs);
-          }
-        } else {
-          console.log('❌ No user logged in');
-        }
-        
-        // Calculate recommendations based on user activity
-        const userActivity = getUserActivityWithProblems(data.items);
-        const skillLevel = calculateSkillLevel(userActivity);
-        setUserSkillLevel(skillLevel);
-        
-        const recommended = getRecommendedProblems(data.items, userActivity, 50);
-        setRecommendedProblems(recommended);
-        
-        setError(null);
-      } catch (err) {
-        console.error('Failed to fetch problems:', err);
-        setError('Failed to load problems. Please try again later.');
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Fetch problems from API; on failure, use static fallback list so the app is still usable
+  const loadProblems = useCallback(async (isRetry = false) => {
+    try {
+      setLoading(true);
+      if (isRetry) setError(null);
+      const data = await fetchDsaQuestions();
+      const items = data.items;
+      setProblems(items);
+      const userActivity = getUserActivityWithProblems(items);
+      const skillLevel = calculateSkillLevel(userActivity);
+      setUserSkillLevel(skillLevel);
+      const recommended = getRecommendedProblems(items, userActivity, 50);
+      setRecommendedProblems(recommended);
+      setError(null);
+      setUseFallbackList(false);
+    } catch (err) {
+      console.error('Failed to fetch problems:', err);
+      const fallback = getDsaProblemList();
+      const fallbackRows: ProblemRow[] = fallback.map((p) => ({
+        id: p.id,
+        title: p.title,
+        difficulty: p.difficulty,
+        acceptance: p.acceptance,
+        tags: p.tags,
+      }));
+      setProblems(fallbackRows);
+      const userActivity = getUserActivityWithProblems(fallbackRows);
+      setUserSkillLevel(calculateSkillLevel(userActivity));
+      setRecommendedProblems(getRecommendedProblems(fallbackRows, userActivity, 50));
+      setUseFallbackList(true);
+      setError(
+        err instanceof DsaApiError
+          ? err.message
+          : 'Backend unavailable. Showing sample problems.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
+  useEffect(() => {
     loadProblems();
-  }, [user]); // Re-fetch when user changes
+  }, [loadProblems]);
+
+  // When in fallback mode, retry API on tab focus so full list loads when backend comes up
+  useEffect(() => {
+    if (!useFallbackList) return;
+    const onFocus = () => loadProblems(true);
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [useFallbackList, loadProblems]);
 
   // Recalculate recommendations when solved/attempted problems change
   useEffect(() => {
@@ -142,22 +134,11 @@ export default function DsaProblems() {
 
   // Listen for storage changes to update solved problems in real-time
   useEffect(() => {
-    const handleStorageChange = async () => {
-      // Refetch solved problems from database using DSA auth context
-      if (user) {
-        const { data: submissions } = await supabase
-          .from('dsa_submissions')
-          .select('slug')
-          .eq('user_id', user.id)
-          .eq('status', 'accepted');
-        
-        if (submissions) {
-          const solvedSlugs = new Set(submissions.map(s => s.slug));
-          setSolvedProblems(solvedSlugs);
-        }
+    const handleStorageChange = () => {
+      const saved = localStorage.getItem('dsa_solved_problems');
+      if (saved) {
+        setSolvedProblems(new Set(JSON.parse(saved)));
       }
-      
-      // Still load attempted and favorites from localStorage
       const attempted = localStorage.getItem('dsa_attempted_problems');
       if (attempted) {
         setAttemptedProblems(new Set(JSON.parse(attempted)));
@@ -170,53 +151,7 @@ export default function DsaProblems() {
     
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, [user]); // Re-run when user changes
-
-  // Real-time subscription for new submissions
-  useEffect(() => {
-    const setupRealtimeSubscription = async () => {
-      if (!user) {
-        console.log('❌ No user for real-time subscription');
-        return;
-      }
-
-      console.log('🔔 Setting up real-time subscription for user:', user.id);
-
-      // Subscribe to changes in dsa_submissions table for current user
-      const channel = supabase
-        .channel('dsa_submissions_changes')
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'dsa_submissions',
-            filter: `user_id=eq.${user.id}`,
-          },
-          (payload) => {
-            console.log('🔔 New submission detected:', payload);
-            // When a new submission is inserted, add to solved problems
-            if (payload.new.status === 'accepted') {
-              console.log('✅ Adding to solved problems:', payload.new.slug);
-              setSolvedProblems(prev => {
-                const next = new Set(prev);
-                next.add(payload.new.slug);
-                console.log('📊 Updated solved problems:', Array.from(next));
-                return next;
-              });
-            }
-          }
-        )
-        .subscribe();
-
-      return () => {
-        console.log('🔕 Cleaning up real-time subscription');
-        supabase.removeChannel(channel);
-      };
-    };
-
-    setupRealtimeSubscription();
-  }, [user]); // Re-setup subscription when user changes
+  }, []);
 
   const toggleFavorite = (e: React.MouseEvent, id: string) => {
     e.stopPropagation(); // Prevent row click navigation
@@ -267,12 +202,7 @@ export default function DsaProblems() {
         (status === "unsolved" && currentStatus === "unsolved") ||
         (status === "attempted" && currentStatus === "attempted");
 
-      // Tag filtering: if tags are selected, check if problem has ANY of the selected tags
-      const matchTag = tags.length === 0 || tags.some(selectedTag => 
-        p.tags.some(problemTag => 
-          problemTag.toLowerCase().includes(selectedTag.toLowerCase())
-        )
-      );
+      const matchTag = tags.length === 0 || tags.some(t => p.tags.includes(t));
       
       // Tab filtering
       let matchTab = true;
@@ -281,7 +211,7 @@ export default function DsaProblems() {
       return matchSearch && matchDiff && matchStatus && matchTag && matchTab;
     });
     return list;
-  }, [search, difficulty, status, tags, activeTab, favorites, solvedProblems, attemptedProblems, problems, recommendedProblems]);
+  }, [search, difficulty, status, tags, activeTab, favorites, solvedProblems, problems, recommendedProblems]);
 
   const difficultyColor = (d: Difficulty) =>
     d === "Easy" ? "text-green-400 bg-green-400/10 border-green-400/20" : 
@@ -292,7 +222,7 @@ export default function DsaProblems() {
     return (
       <div className={cn(
         "h-full flex items-center justify-center",
-        "bg-white dark:bg-[#0B0F19]"
+        theme === 'pastel' ? "bg-transparent" : "bg-white dark:bg-[#0B0F19]"
       )}>
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500 mx-auto"></div>
@@ -302,78 +232,56 @@ export default function DsaProblems() {
     );
   }
 
-  if (error) {
-    return (
-      <div className={cn(
-        "h-full flex items-center justify-center",
-        "bg-white dark:bg-[#0B0F19]"
-      )}>
-        <div className="text-center space-y-4">
-          <p className="text-red-500">{error}</p>
-          <Button onClick={() => window.location.reload()}>Retry</Button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className={cn(
         "h-full flex flex-col overflow-hidden transition-colors duration-300",
-        "bg-white dark:bg-[#0B0F19]" 
+        theme === 'pastel' ? "bg-transparent" : "bg-white dark:bg-[#0B0F19]" 
     )}>
+      {/* Fallback mode banner when API is unavailable */}
+      {useFallbackList && error && (
+        <div className="shrink-0 bg-amber-500/15 border-b border-amber-500/30 px-4 py-2 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-amber-800 dark:text-amber-200">
+            {error} Showing sample problems. Start the server and database to see all questions.
+          </p>
+          <Button variant="outline" size="sm" onClick={() => loadProblems(true)} className="border-amber-500/50">
+            Retry
+          </Button>
+        </div>
+      )}
       {/* Fixed Header Section */}
       <div className="shrink-0 p-6 pb-2 space-y-4">
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
             <div className="space-y-1">
                 <h1 className={cn(
                     "text-3xl font-bold tracking-tight mb-1 transition-colors",
-                    "text-slate-900 dark:text-white"
+                    theme === 'pastel' ? "text-slate-800" : "text-slate-900 dark:text-white"
                 )}>Problems</h1>
-                <p className="text-sm text-muted-foreground">Search your practice problems here and get started.</p>
-                
-                {/* Active Filters Display */}
-                {(tags.length > 0 || difficulty !== "all" || status !== "all") && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {tags.map(tag => (
-                      <span
-                        key={tag}
-                        className={cn(
-                          "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium",
-                          "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20"
-                        )}
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                    {difficulty !== "all" && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border border-yellow-500/20">
-                        {difficulty}
-                      </span>
-                    )}
-                    {status !== "all" && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">
-                        {status}
-                      </span>
-                    )}
-                  </div>
-                )}
+                <p className="text-sm text-muted-foreground">
+                  {useFallbackList
+                    ? 'Search your practice problems here (sample list). Start server + DB for full list.'
+                    : problems.length > 0
+                      ? `Search your practice problems here. ${problems.length.toLocaleString()} questions from database.`
+                      : 'Search your practice problems here and get started.'}
+                </p>
             </div>
             
             {/* Skill Level Badge */}
             {activeTab === "Recommended" && (
               <div className={cn(
                 "flex items-center gap-2 px-4 py-2 rounded-xl border transition-all",
-                "bg-cyan-500/10 border-cyan-500/20"
+                theme === 'pastel' 
+                  ? "bg-rose-50 border-rose-200" 
+                  : "bg-cyan-500/10 border-cyan-500/20"
               )}>
                 <Sparkles className={cn(
                   "h-4 w-4",
-                  "text-cyan-400"
+                  theme === 'pastel' ? "text-rose-500" : "text-cyan-400"
                 )} />
                 <div className="text-sm">
                   <span className="text-muted-foreground">Skill Level: </span>
                   <span className={cn(
                     "font-semibold capitalize",
-                    "text-cyan-400"
+                    theme === 'pastel' ? "text-rose-600" : "text-cyan-400"
                   )}>
                     {userSkillLevel}
                   </span>
@@ -388,7 +296,7 @@ export default function DsaProblems() {
         {/* Tabs */}
         <div className={cn(
             "pt-4 flex items-center gap-6 border-b mt-2 transition-colors",
-            "border-slate-200 dark:border-white/50"
+            theme === 'pastel' ? "border-rose-100" : "border-slate-200 dark:border-white/50"
         )}>
             {["All Questions", "Favorite Questions", "Recommended"].map((tab) => {
                 const tabKey = tab.split(" ")[0] as "All" | "Favorite" | "Recommended";
@@ -400,8 +308,8 @@ export default function DsaProblems() {
                         className={cn(
                             "pb-2 text-sm font-medium transition-all relative flex items-center gap-2",
                             isActive 
-                                ? "text-cyan-600 dark:text-cyan-400" 
-                                : cn("text-muted-foreground", "hover:text-slate-900 dark:hover:text-white")
+                                ? theme === 'pastel' ? "text-rose-600" : "text-cyan-600 dark:text-cyan-400" 
+                                : cn("text-muted-foreground", theme === 'pastel' ? "hover:text-rose-900" : "hover:text-slate-900 dark:hover:text-white")
                         )}
                     >
                         {tabKey === "Recommended" && <Sparkles className="h-3.5 w-3.5" />}
@@ -409,7 +317,7 @@ export default function DsaProblems() {
                         {isActive && (
                             <div className={cn(
                                 "absolute bottom-0 left-0 w-full h-0.5 rounded-t-full",
-                                "bg-cyan-500 shadow-[0_0_10px_rgba(34,211,238,0.5)]"
+                                theme === 'pastel' ? "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" : "bg-cyan-500 shadow-[0_0_10px_rgba(34,211,238,0.5)]"
                             )} />
                         )}
                     </button>
@@ -421,11 +329,13 @@ export default function DsaProblems() {
         {activeTab === "Recommended" && (
           <div className={cn(
             "mt-2 p-3 rounded-xl border text-sm flex items-start gap-3",
-            "bg-cyan-500/5 border-cyan-500/20 text-cyan-700 dark:text-cyan-300"
+            theme === 'pastel' 
+              ? "bg-rose-50/50 border-rose-200/50 text-rose-900" 
+              : "bg-cyan-500/5 border-cyan-500/20 text-cyan-700 dark:text-cyan-300"
           )}>
             <Sparkles className={cn(
               "h-4 w-4 mt-0.5 shrink-0",
-              "text-cyan-500"
+              theme === 'pastel' ? "text-rose-500" : "text-cyan-500"
             )} />
             <div>
               <p className="font-medium mb-1">Smart Recommendations</p>
@@ -439,20 +349,26 @@ export default function DsaProblems() {
         )}
 
         {/* Search Bar */}
-        <div className="relative group mt-3">
+        <div className="relative group ">
             <Search className={cn(
                 "absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors",
-                "group-focus-within:text-cyan-600 dark:group-focus-within:text-cyan-400"
+                theme === 'pastel' ? "group-focus-within:text-rose-500" : "group-focus-within:text-cyan-600 dark:group-focus-within:text-cyan-400"
             )} />
             <Input
             placeholder="Search Problems"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className={cn(
-                "pl-11 pr-4 h-10 border-[1.5px] rounded-xl transition-all text-sm",
-                "bg-white dark:bg-[#111625] border-slate-200 dark:border-white/50 focus-visible:ring-cyan-500/20 focus-visible:border-cyan-500/50 text-slate-900 dark:text-white placeholder:text-muted-foreground/50"
+                "pl-11 pr-10 h-10 border-[1.5px] rounded-xl transition-all text-sm",
+                theme === 'pastel' 
+                    ? "bg-white border-rose-100 focus-visible:ring-rose-400/20 focus-visible:border-rose-400/50 text-slate-900 placeholder:text-muted-foreground/50" 
+                    : "bg-white dark:bg-[#111625] border-slate-200 dark:border-white/50 focus-visible:ring-cyan-500/20 focus-visible:border-cyan-500/50 text-slate-900 dark:text-white placeholder:text-muted-foreground/50"
             )}
             />
+            <Mic className={cn(
+                "absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground cursor-pointer transition-colors",
+                theme === 'pastel' ? "hover:text-rose-600" : "hover:text-slate-900 dark:hover:text-white"
+            )} />
         </div>
       </div>
 
@@ -460,12 +376,12 @@ export default function DsaProblems() {
       <div className="flex-1 overflow-hidden px-6 pb-6">
         <div className={cn(
             "h-full rounded-2xl border-[1.5px] overflow-hidden flex flex-col",
-            "border-slate-200 dark:border-white/50 bg-slate-50 dark:bg-[#111625]/50"
+            theme === 'pastel' ? "border-rose-100 bg-white/60" : "border-slate-200 dark:border-white/50 bg-slate-50 dark:bg-[#111625]/50"
         )}>
             {/* Table Header Fixed */}
             <div className={cn(
                 "border-[1.5px] backdrop-blur-sm z-10",
-                "bg-white/80 dark:bg-[#111625]/80 border-slate-200 dark:border-white/50"
+                theme === 'pastel' ? "bg-white/80 border-rose-100" : "bg-white/80 dark:bg-[#111625]/80 border-slate-200 dark:border-white/50"
             )}>
                 <Table>
                     <TableHeader>
@@ -494,7 +410,9 @@ export default function DsaProblems() {
                             key={row.id}
                             className={cn(
                                 "cursor-pointer border-[1.5px] transition-all duration-300 group h-12",
-                                "border-slate-200 dark:border-white/50 hover:bg-cyan-500/10 hover:border-l-4 hover:border-l-cyan-400 hover:shadow-[0_0_20px_rgba(34,211,238,0.1)] border-l-2 border-l-transparent dark:hover:bg-cyan-500/10"
+                                theme === 'pastel' 
+                                    ? "border-rose-50 hover:bg-rose-50 hover:border-l-4 hover:border-l-rose-400 hover:shadow-[0_0_20px_rgba(244,63,94,0.1)] border-l-2 border-l-transparent" 
+                                    : "border-slate-200 dark:border-white/50 hover:bg-cyan-500/10 hover:border-l-4 hover:border-l-cyan-400 hover:shadow-[0_0_20px_rgba(34,211,238,0.1)] border-l-2 border-l-transparent dark:hover:bg-cyan-500/10"
                             )}
                             onClick={() => navigate(`/dsa/problem/${row.id}`)}
                         >
@@ -509,7 +427,7 @@ export default function DsaProblems() {
                                     ) : (
                                         <div className={cn(
                                             "h-4 w-4 rounded-full border-2 border-muted-foreground/30 transition-colors",
-                                            "group-hover:border-cyan-400/50"
+                                            theme === 'pastel' ? "group-hover:border-rose-400/50" : "group-hover:border-cyan-400/50"
                                         )} />
                                     )}
                                 </div>
@@ -529,7 +447,7 @@ export default function DsaProblems() {
                                     </button>
                                     <span className={cn(
                                         "font-medium text-sm transition-colors",
-                                        "text-slate-700 dark:text-white/90 group-hover:text-slate-900 dark:group-hover:text-white"
+                                        theme === 'pastel' ? "text-slate-700 group-hover:text-slate-900" : "text-slate-700 dark:text-white/90 group-hover:text-slate-900 dark:group-hover:text-white"
                                     )}>
                                         {row.title}
                                     </span>
@@ -541,10 +459,7 @@ export default function DsaProblems() {
                             </span>
                             </TableCell>
                             <TableCell className="text-center text-muted-foreground w-32 py-2 text-sm">
-                                {successRates.has(row.id) 
-                                  ? `${successRates.get(row.id)!.successRate.toFixed(1)}%`
-                                  : `${row.acceptance}%`
-                                }
+                                {row.acceptance}%
                             </TableCell>
                             <TableCell className="text-right pr-6 w-32 py-2">
                                 <Button 
@@ -552,7 +467,9 @@ export default function DsaProblems() {
                                     variant="outline"
                                     className={cn(
                                         "h-7 text-xs px-3 rounded-full transition-all bg-transparent",
-                                        "border-cyan-500/20 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-400 hover:text-white dark:hover:text-[#0B0F19]"
+                                        theme === 'pastel' 
+                                            ? "border-rose-200 text-rose-500 hover:bg-rose-400 hover:text-white" 
+                                            : "border-cyan-500/20 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-400 hover:text-white dark:hover:text-[#0B0F19]"
                                     )}
                                 >
                                     Solve

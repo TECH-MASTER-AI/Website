@@ -3,11 +3,21 @@ import { lazy, Suspense, memo } from 'react';
 // Lazy load heavy components
 const SplitText = lazy(() => import('./SplitText'));
 const ScrollVelocity = lazy(() => import('./ScrollVelocity'));
+const FloatingLines = lazy(() => import('./FloatingLines'));
 const TypingEffect = lazy(() => import('./TypingEffect'));
 
 const HeroSection = () => {
   return (
     <section className="hero-section relative min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 py-16 sm:py-20 overflow-hidden">
+      {/* Floating Lines Background Animation - Lazy loaded, reduced on mobile */}
+      <Suspense fallback={null}>
+        <FloatingLines
+          enabledWaves={['top', 'middle', 'bottom']}
+          lineCount={5}
+          lineDistance={5}
+        />
+      </Suspense>
+
       {/* Subtle Background Grid */}
       <div className="absolute inset-0 cyber-grid" style={{ zIndex: 1 }} />
       

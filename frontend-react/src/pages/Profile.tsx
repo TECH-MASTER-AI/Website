@@ -4,6 +4,7 @@ import { User, Mail, Phone, Camera, Save, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import FloatingLines from '../components/FloatingLines';
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -108,8 +109,12 @@ const Profile = () => {
     <div className="min-h-screen flex flex-col bg-background scanline">
       <Header />
       <main className="flex-1 flex items-center justify-center px-4 pt-32 pb-16 relative overflow-hidden">
-        {/* Background Grid */}
-        <div className="absolute inset-0 cyber-grid" style={{ zIndex: 1 }} />
+        {/* Floating Lines Background Animation */}
+        <FloatingLines
+          enabledWaves={['top', 'middle', 'bottom']}
+          lineCount={5}
+          lineDistance={5}
+        />
 
         {/* Background Effects */}
         <div className="absolute inset-0 cyber-grid opacity-30" style={{ zIndex: 1 }} />

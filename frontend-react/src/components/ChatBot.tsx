@@ -1,16 +1,13 @@
 /**
  * STABLE HYBRID CHATBOT COMPONENT
- * Priority: Hardcoded Knowledge Base → Groq API → Friendly Fallback
- * - Checks hardcoded responses FIRST for instant answers
- * - Falls back to Groq API for general questions
  * - NEVER shows "Service Down" messages
+ * - Always calls Netlify function for every message
  * - Clean error handling with no red console errors
  * - Mobile-responsive design
  */
 
 import { useState, useEffect, useRef } from 'react';
 import { X, Send } from 'lucide-react';
-import { searchKnowledgeBase } from '../data/knowledgeBase';
 
 // Message interface
 interface Message {
@@ -54,7 +51,7 @@ const ChatBot = () => {
     };
   };
 
-  // Handle sending message - Check hardcoded knowledge FIRST, then API
+  // Handle sending message - ALWAYS calls Netlify function
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
@@ -64,23 +61,10 @@ const ChatBot = () => {
     setIsLoading(true);
 
     try {
-      // 🎯 STEP 1: Check hardcoded knowledge base FIRST (instant response)
-      const knowledgeResponse = searchKnowledgeBase(userMessage);
-      
-      if (knowledgeResponse) {
-        // Found in knowledge base - instant response!
-        setMessages(prev => [...prev, { 
-          from: 'bot', 
-          text: knowledgeResponse,
-          source: 'knowledge'
-        }]);
-        setIsLoading(false);
-        return;
-      }
-
-      // 🤖 STEP 2: Not in knowledge base - call Groq API via Netlify function
+      // Prepare conversation history (last 5 messages)
       const conversationHistory = messages.slice(-5);
 
+      // Call Netlify function for EVERY message
       const response = await fetch('/.netlify/functions/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -13,24 +13,24 @@ const TABS: { id: FunDifficulty; label: string }[] = [
 
 type GameKind = "bridge" | "astro" | null;
 
-function TypeForgeFun() {
+export default function TypeForgeFun() {
   const [difficulty, setDifficulty] = useState<FunDifficulty>("newbie");
   const [activeGame, setActiveGame] = useState<GameKind>(null);
 
   return (
     <div className="space-y-6">
       <div className="text-center space-y-1">
-        <h1 className="text-2xl font-medium text-white">Type Forge</h1>
-        <p className="text-sm text-slate-400">Test your typing skills and practice here.</p>
+        <h1 className="text-2xl font-medium text-foreground">Type Forge</h1>
+        <p className="text-sm text-muted-foreground">Test your typing skills and practice here.</p>
       </div>
-      <div className="h-px bg-white/10" />
+      <div className="h-px bg-border" />
 
       <div>
-        <h2 className="text-lg font-medium text-cyan-400 mb-1">Fun</h2>
-        <p className="text-sm text-slate-400 mb-4">
+        <h2 className="text-lg font-medium text-primary mb-1">Fun</h2>
+        <p className="text-sm text-muted-foreground mb-4">
           Typing-driven games. Select a difficulty, then pick a game.
         </p>
-        <div className="inline-flex h-10 p-0.5 rounded-lg bg-white/5 border border-white/10 gap-0 mb-6">
+        <div className="inline-flex h-10 p-0.5 rounded-lg bg-muted/50 border border-border gap-0 mb-6">
           {TABS.map(({ id, label }) => (
             <button
               key={id}
@@ -38,8 +38,8 @@ function TypeForgeFun() {
               onClick={() => setDifficulty(id)}
               className={cn(
                 "px-4 py-2 text-sm font-semibold rounded-md transition-all duration-150",
-                difficulty === id && "bg-cyan-500/20 text-cyan-400 border-b-2 border-cyan-400",
-                difficulty !== id && "text-slate-400 hover:text-white"
+                difficulty === id && "bg-primary/20 text-primary border-b-2 border-primary",
+                difficulty !== id && "text-muted-foreground hover:text-foreground"
               )}
             >
               {label}
@@ -52,20 +52,20 @@ function TypeForgeFun() {
             <button
               type="button"
               onClick={() => setActiveGame("bridge")}
-              className="rounded-xl border border-white/10 bg-[#1E2026] p-6 text-left hover:border-cyan-500/40 hover:bg-cyan-500/5 transition-all duration-150"
+              className="rounded-xl border border-border bg-card p-6 text-left hover:border-primary/40 hover:bg-primary/5 transition-all duration-150"
             >
-              <h3 className="text-lg font-semibold text-cyan-400 mb-1">Bridge Jump</h3>
-              <p className="text-slate-400 text-sm">
+              <h3 className="text-lg font-semibold text-primary mb-1">Bridge Jump</h3>
+              <p className="text-muted-foreground text-sm">
                 Type letters or words on platforms to jump. Wrong input = stumble; miss = fall.
               </p>
             </button>
             <button
               type="button"
               onClick={() => setActiveGame("astro")}
-              className="rounded-xl border border-white/10 bg-[#1E2026] p-6 text-left hover:border-cyan-500/40 hover:bg-cyan-500/5 transition-all duration-150"
+              className="rounded-xl border border-border bg-card p-6 text-left hover:border-primary/40 hover:bg-primary/5 transition-all duration-150"
             >
-              <h3 className="text-lg font-semibold text-cyan-400 mb-1">Astro Type</h3>
-              <p className="text-slate-400 text-sm">
+              <h3 className="text-lg font-semibold text-primary mb-1">Astro Type</h3>
+              <p className="text-muted-foreground text-sm">
                 Type the word on each asteroid to shoot it. Speed increases with difficulty.
               </p>
             </button>
@@ -82,11 +82,11 @@ function TypeForgeFun() {
         )}
 
         {activeGame === "astro" && (
-          <div className="rounded-xl border border-white/10 bg-[#0B0F14] overflow-hidden">
-            <div className="p-2 border-b border-white/10 flex justify-end">
+          <div className="rounded-xl border border-border bg-card overflow-hidden">
+            <div className="p-2 border-b border-border flex justify-end">
               <button
                 type="button"
-                className="text-slate-400 hover:text-white text-sm"
+                className="text-muted-foreground hover:text-foreground text-sm"
                 onClick={() => setActiveGame(null)}
               >
                 Close
@@ -101,4 +101,3 @@ function TypeForgeFun() {
     </div>
   );
 }
-export default TypeForgeFun;

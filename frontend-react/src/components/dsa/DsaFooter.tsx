@@ -7,7 +7,7 @@ export function DsaFooter() {
       <div className="container px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
         <Link to="/dsa/problems" className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground">
           <Code2 className="h-4 w-4" />
-          Flow State
+          DSA Practice
         </Link>
         <div className="flex items-center gap-6 text-sm text-muted-foreground">
           <Link to="/" className="hover:text-foreground">

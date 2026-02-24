@@ -14,7 +14,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { toast } from "sonner";
-import { useSupabaseAuth } from "@/contexts/SupabaseAuthContext";
+import { useDsaAuth } from "@/features/dsa/auth/DsaAuthContext";
 import { setProfileGender } from "@/features/dsa/profile/dsaProfileStore";
 
 const registerSchema = z
@@ -34,7 +34,7 @@ type RegisterForm = z.infer<typeof registerSchema>;
 
 export default function DsaRegister() {
   const navigate = useNavigate();
-  const { signUp } = useSupabaseAuth(); // Use unified Supabase auth
+  const { register: doRegister } = useDsaAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<RegisterForm>({
@@ -52,9 +52,12 @@ export default function DsaRegister() {
     setIsSubmitting(true);
     try {
       setProfileGender(values.gender);
-      const result = await signUp(values.email, values.password, values.username);
-      if (!result.error) {
+      const result = await doRegister(values.username, values.email, values.password);
+      if (result.success) {
+        toast.success("Account created. Welcome!");
         navigate("/dsa/dashboard", { replace: true });
+      } else {
+        toast.error(result.error ?? "Registration failed");
       }
     } finally {
       setIsSubmitting(false);

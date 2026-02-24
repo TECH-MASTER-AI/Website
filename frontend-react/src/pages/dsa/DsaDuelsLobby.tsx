@@ -2,10 +2,10 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Swords, Loader2, Users, Zap, ChevronRight } from "lucide-react";
+import { Swords, Loader2, Users, Timer, Calendar, Zap } from "lucide-react";
 import { getDuelWsUrl } from "@/features/dsa/duels/duelWsUrl";
 import { useDuelUser } from "@/features/dsa/duels/useDuelUser";
-import { getCombinedRating, getRankTier, getDuelStats, getRankProgress } from "@/features/dsa/duels/duelRating";
+import { getDuelRating, getRankTier, getDuelStats } from "@/features/dsa/duels/duelRating";
 import { toast } from "sonner";
 
 const COUNTDOWN_SEC = 4;
@@ -33,36 +33,6 @@ export default function DsaDuelsLobby() {
   const wsRef = useRef<WebSocket | null>(null);
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const matchedRef = useRef(false);
-
-  // State for rating and stats
-  const [rating, setRating] = useState(1000);
-  const [stats, setStats] = useState({ wins: 0, losses: 0, streak: 0, bestStreak: 0, history: [] });
-  const [loadingStats, setLoadingStats] = useState(true);
-
-  // Load rating and stats
-  useEffect(() => {
-    async function loadRatingAndStats() {
-      if (!user) {
-        setLoadingStats(false);
-        return;
-      }
-      
-      try {
-        const [ratingData, statsData] = await Promise.all([
-          getCombinedRating(),
-          getDuelStats()
-        ]);
-        setRating(ratingData);
-        setStats(statsData);
-      } catch (error) {
-        console.error('Error loading rating/stats:', error);
-      } finally {
-        setLoadingStats(false);
-      }
-    }
-
-    loadRatingAndStats();
-  }, [user]);
 
   useEffect(() => {
     return () => {
@@ -216,7 +186,7 @@ export default function DsaDuelsLobby() {
   };
 
   return (
-    <div className="flex-1 p-6 relative">
+    <div className="flex-1 flex flex-col min-h-0 p-6 relative">
       {finding && !matchedWith && (
         <div className="fixed inset-0 z-40 flex flex-col items-center justify-center overflow-hidden bg-background/80 backdrop-blur-md">
           <div className="relative flex flex-col items-center text-center px-8 max-w-sm">
@@ -290,8 +260,13 @@ export default function DsaDuelsLobby() {
                     </span>
                   )}
                 </div>
-                <span className="text-sm font-medium truncate max-w-[100px]">
+                <span className="text-sm font-medium truncate max-w-[100px] flex items-center gap-1 justify-center">
                   {matchedWith.opponent}
+                  {matchedWith.isBot && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 font-medium">
+                      AI
+                    </span>
+                  )}
                 </span>
               </div>
             </div>
@@ -348,57 +323,23 @@ export default function DsaDuelsLobby() {
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold flex items-center justify-center gap-2">
             <Swords className="h-8 w-8 text-primary" />
-            Code Royale
+            1v1 Duels
           </h1>
           <p className="text-muted-foreground mt-1">
             Compete with a random opponent online. Solve the DSA problem first to win and climb the rank.
           </p>
-          {user && !loadingStats && (() => {
+          {user && (() => {
+            const rating = getDuelRating();
             const rank = getRankTier(rating);
-            const progress = getRankProgress(rating);
-            
+            const stats = getDuelStats();
             return (
-              <div className="mt-4 space-y-3">
-                {/* Current Rank Display */}
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-2xl">{rank.icon}</span>
-                  <div className="text-center">
-                    <p className={`text-lg font-bold ${rank.color}`}>{rank.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Rating: <span className="tabular-nums font-semibold text-primary">{rating}</span>
-                    </p>
-                  </div>
-                </div>
-
-                {/* Progress Bar to Next Rank */}
-                {progress.next && (
-                  <div className="max-w-md mx-auto space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Progress to {progress.next.name}</span>
-                      <span className="font-medium text-primary">{progress.pointsNeeded} pts needed</span>
-                    </div>
-                    <div className="relative h-2.5 bg-muted rounded-full overflow-hidden">
-                      <div 
-                        className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-primary/80 rounded-full transition-all duration-500"
-                        style={{ width: `${progress.progress}%` }}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{rank.name}</span>
-                      <ChevronRight className="h-3 w-3" />
-                      <span className={progress.next.color}>{progress.next.icon} {progress.next.name}</span>
-                    </div>
-                  </div>
-                )}
-
-                {!progress.next && (
-                  <div className="text-center">
-                    <p className="text-sm font-semibold text-primary">🎉 Maximum Rank!</p>
-                  </div>
-                )}
-
-                {/* Win/Loss Stats */}
-                <p className="text-xs text-muted-foreground text-center">
+              <div className="mt-3 space-y-1">
+                <p className="text-sm font-medium text-primary">
+                  Rating: <span className="tabular-nums">{rating}</span>
+                  {" · "}
+                  <span className={rank.color}>{rank.icon} {rank.name}</span>
+                </p>
+                <p className="text-xs text-muted-foreground">
                   {stats.wins}W / {stats.losses}L
                   {stats.streak > 0 && <span className="text-green-500 ml-2">🔥 {stats.streak} win streak</span>}
                 </p>
@@ -442,15 +383,47 @@ export default function DsaDuelsLobby() {
               )}
             </Button>
             <p className="text-xs text-muted-foreground text-center">
-              If no one is online, you’ll be matched with an AI opponent in a few seconds. Room includes: live chat, AI helper. Winner gets +rank.
+              If no one is online, you’ll be matched with an AI opponent in a few seconds. Room includes: live chat, voice, AI. Winner gets +rank.
             </p>
           </CardContent>
         </Card>
 
         <div className="mt-8">
-          <p className="text-sm text-muted-foreground text-center">
-            Want more practice? Check out the <Link to="/dsa/problems" className="text-primary hover:underline">Problems</Link> section for hundreds of DSA challenges.
-          </p>
+          <h2 className="text-lg font-semibold mb-4 text-center">Other ways to practice</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Card className="hover:border-primary/50 transition-colors">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Timer className="h-4 w-4 text-primary" />
+                  Solo Challenge
+                </CardTitle>
+                <CardDescription>
+                  Timed run, no opponent. Solve a random problem and get a score. No login required.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button variant="outline" className="w-full" asChild>
+                  <Link to="/dsa/duels/solo">Start solo</Link>
+                </Button>
+              </CardContent>
+            </Card>
+            <Card className="hover:border-primary/50 transition-colors">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  Daily Challenge
+                </CardTitle>
+                <CardDescription>
+                  One problem per day for everyone. Same challenge, compare times when leaderboard is connected.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button variant="outline" className="w-full" asChild>
+                  <Link to="/dsa/duels/daily">Today&apos;s challenge</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>

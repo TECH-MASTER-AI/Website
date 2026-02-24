@@ -2,13 +2,12 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, Phone, UserPlus, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
-import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import FloatingLines from '../components/FloatingLines';
 
 const Signup = () => {
   const navigate = useNavigate();
-  const { signUp } = useSupabaseAuth();
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -21,14 +20,28 @@ const Signup = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Use Supabase authentication
-    const result = await signUp(formData.email, formData.password, formData.name);
-    
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    // Store signup data
+    const existingData = JSON.parse(localStorage.getItem('techmasterai_users') || '[]');
+    const signupEntry = {
+      ...formData,
+      password: undefined, // Don't store password
+      id: Date.now(),
+      submittedAt: new Date().toISOString(),
+      type: 'signup',
+    };
+    localStorage.setItem('techmasterai_users', JSON.stringify([...existingData, signupEntry]));
+
     setIsLoading(false);
     
-    if (!result.error) {
-      navigate('/');
-    }
+    // Welcome popup for new users
+    toast.success('🎉 Welcome to TechMaster!', {
+      description: 'Account created successfully. Please login to continue.',
+      duration: 4000,
+    });
+    
+    navigate('/login');
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -39,8 +52,12 @@ const Signup = () => {
     <div className="min-h-screen flex flex-col bg-background scanline">
       <Header />
       <main className="flex-1 flex items-center justify-center px-4 pt-32 pb-16 relative overflow-hidden">
-        {/* Background Grid */}
-        <div className="absolute inset-0 cyber-grid" style={{ zIndex: 1 }} />
+        {/* Floating Lines Background Animation */}
+        <FloatingLines
+          enabledWaves={['top', 'middle', 'bottom']}
+          lineCount={5}
+          lineDistance={5}
+        />
 
         {/* Background Effects */}
         <div className="absolute inset-0 cyber-grid opacity-30" style={{ zIndex: 1 }} />

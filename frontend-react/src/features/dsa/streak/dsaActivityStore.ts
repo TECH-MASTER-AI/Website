@@ -31,9 +31,6 @@ export function recordActivity(): void {
   const set = getActivityDates();
   set.add(key);
   localStorage.setItem(STORAGE_KEY, JSON.stringify([...set]));
-  
-  // Dispatch custom event to notify calendar in same tab
-  window.dispatchEvent(new CustomEvent('dsa-activity-updated'));
 }
 
 export function getCurrentStreak(): number {

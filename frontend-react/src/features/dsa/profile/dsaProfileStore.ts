@@ -1,10 +1,12 @@
 /**
- * DSA profile: photo, gender, login streak. Stored in localStorage.
+ * DSA profile: photo, gender, login streak, solved problems. Stored in localStorage.
+ * Solved problems sync to backend when user is logged in (Firebase).
  */
 
 const PHOTO_KEY = "dsa_profile_photo";
 const GENDER_KEY = "dsa_profile_gender";
 const LOGIN_STREAK_KEY = "dsa_login_streak"; // { lastDate: "YYYY-MM-DD", streak: number }
+const SOLVED_PROBLEMS_KEY = "dsa_solved_problems"; // string[] of problem ids (slugs)
 
 function dateKey(d: Date): string {
   const y = d.getFullYear();
@@ -84,4 +86,52 @@ function getLoginStreakData(): { lastDate: string; streak: number } {
 
 export function getLoginStreak(): number {
   return getLoginStreakData().streak;
+}
+
+// --- Solved problems (real-time, used by profile + problems list) ---
+
+export function getSolvedProblemIds(): string[] {
+  try {
+    const raw = localStorage.getItem(SOLVED_PROBLEMS_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw) as unknown;
+    return Array.isArray(arr) ? arr.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Add a problem id to solved list (no duplicate). Dispatches storage event so other tabs/listeners update. */
+export function addSolvedProblem(problemId: string): void {
+  if (!problemId?.trim()) return;
+  const id = problemId.trim();
+  const list = getSolvedProblemIds();
+  if (list.includes(id)) return;
+  const next = [...list, id];
+  localStorage.setItem(SOLVED_PROBLEMS_KEY, JSON.stringify(next));
+  window.dispatchEvent(new StorageEvent("storage", { key: SOLVED_PROBLEMS_KEY, newValue: JSON.stringify(next) }));
+}
+
+/** Call after addSolvedProblem when user is logged in — sync to backend so problems_solved and submissions are updated. */
+export async function syncSolvedToBackend(problemId: string, opts?: { language?: string; runtime_ms?: number; memory_mb?: number }): Promise<void> {
+  try {
+    const { getApiUrl, getAuthHeaders } = await import("@/lib/api");
+    const { auth } = await import("@/lib/firebase");
+    if (!auth?.currentUser) return;
+    const token = await auth.currentUser.getIdToken();
+    if (!token) return;
+    await fetch(getApiUrl("/api/dsa/submissions"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        problem_id: problemId,
+        status: "Accepted",
+        language: opts?.language ?? "javascript",
+        runtime_ms: opts?.runtime_ms ?? null,
+        memory_mb: opts?.memory_mb ?? null,
+      }),
+    });
+  } catch {
+    // offline or backend down — localStorage already updated
+  }
 }

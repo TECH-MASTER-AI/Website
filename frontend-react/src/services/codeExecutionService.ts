@@ -1,11 +1,9 @@
-// Code Execution Service - Connects to real backend execution server
-// Backend API: http://localhost:3001/api/execute
+// Code Execution Service - Connects to backend via /api (Vite proxy in dev)
+import { getApiUrl } from '@/lib/api';
 
-const EXECUTE_API =
-  import.meta.env.DEV
-    ? 'http://localhost:3001/api/execute'
-    : '/api/execute';
-
+function getExecuteApi() {
+  return getApiUrl('/api/execute');
+}
 
 export interface ExecutionResult {
   status: 'success' | 'compilation_error' | 'runtime_error' | 'wrong_answer' | 'time_limit_exceeded' | 'memory_limit_exceeded';
@@ -144,9 +142,9 @@ export async function executeCode(
   }
   
   try {
-    // Call backend execution API
-    const endpoint = isSubmission ? `${EXECUTE_API}/submit` : `${EXECUTE_API}/run`;
-    
+    const base = getExecuteApi();
+    const endpoint = isSubmission ? `${base}/submit` : `${base}/run`;
+
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -164,15 +162,7 @@ export async function executeCode(
     });
     
     if (!response.ok) {
-      let errorBody = {};
-      try {
-        errorBody = await response.json();
-      } catch (e) {
-        throw new Error(`Server error: ${response.status} ${response.statusText}`);
-      }
-      
-      const serverErrorMessage = errorBody.details || errorBody.error || `${response.status} ${response.statusText}`;
-      throw new Error(`Server error: ${serverErrorMessage}`);
+      throw new Error(`Server error: ${response.status} ${response.statusText}`);
     }
     
     const data = await response.json();
@@ -231,7 +221,7 @@ export async function executeCode(
       complexity: { 
         timeComplexity: 'N/A', 
         spaceComplexity: 'N/A', 
-        analysis: `Failed to connect to execution server: ${errorMessage}. Make sure the backend server is running on ${API_BASE_URL}` 
+        analysis: `Failed to connect to execution server: ${errorMessage}. Make sure the backend is running.` 
       },
     };
   }

@@ -1,15 +1,12 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { List, Trophy, User } from "lucide-react";
-import { useSupabaseAuth } from "@/contexts/SupabaseAuthContext";
+import { List, FileCode, User } from "lucide-react";
+import { useDsaAuth } from "@/features/dsa/auth/DsaAuthContext";
 import { getProfilePhoto } from "@/features/dsa/profile/dsaProfileStore";
 
 export default function DsaDashboard() {
-  const { user } = useSupabaseAuth();
+  const { user } = useDsaAuth();
   const profilePhoto = getProfilePhoto();
-  
-  // Get username from user metadata or email
-  const username = user?.user_metadata?.username || user?.email?.split('@')[0] || 'Player';
 
   return (
     <div className="flex-1 p-6">
@@ -21,22 +18,22 @@ export default function DsaDashboard() {
             ) : (
               <div className="h-full w-full rounded-full bg-muted flex items-center justify-center">
                 <span className="text-xl font-bold text-primary">
-                  {username.charAt(0).toUpperCase()}
+                  {user?.username?.charAt(0).toUpperCase() ?? "D"}
                 </span>
               </div>
             )}
           </div>
           <div>
             <h1 className="text-2xl font-bold">
-              {user ? `Welcome, ${username}` : "Flow State Dashboard"}
+              {user ? `Welcome, ${user.username}` : "DSA Practice Dashboard"}
             </h1>
             <p className="text-muted-foreground mt-1">
-              Track progress, solve problems, and climb the leaderboard.
+              Track progress and solve problems.
             </p>
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Button variant="outline" className="h-auto flex flex-col items-start gap-2 p-4" asChild>
             <Link to="/dsa/problems">
               <List className="h-5 w-5" />
@@ -45,10 +42,10 @@ export default function DsaDashboard() {
             </Link>
           </Button>
           <Button variant="outline" className="h-auto flex flex-col items-start gap-2 p-4" asChild>
-            <Link to="/dsa/leaderboard">
-              <Trophy className="h-5 w-5" />
-              <span className="font-medium">Leaderboard</span>
-              <span className="text-xs text-muted-foreground">Rankings</span>
+            <Link to="/dsa/submissions">
+              <FileCode className="h-5 w-5" />
+              <span className="font-medium">Submissions</span>
+              <span className="text-xs text-muted-foreground">Your attempts</span>
             </Link>
           </Button>
           <Button variant="outline" className="h-auto flex flex-col items-start gap-2 p-4" asChild>
@@ -59,6 +56,15 @@ export default function DsaDashboard() {
             </Link>
           </Button>
         </div>
+
+        {user && (
+          <div className="rounded-lg border bg-card p-4">
+            <h2 className="font-semibold mb-2">Quick stats</h2>
+            <p className="text-sm text-muted-foreground">
+              Rating: {user.rating ?? 0} · Problems solved: {user.problemsSolved ?? 0}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

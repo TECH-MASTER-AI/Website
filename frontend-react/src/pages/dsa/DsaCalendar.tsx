@@ -23,22 +23,8 @@ export default function DsaCalendar() {
   const user = useDuelUser();
   const [activityDates, setActivityDates] = useState(() => getActivityDates());
 
-  // Listen for localStorage changes (when activity is recorded)
   useEffect(() => {
-    const handleStorageChange = () => {
-      setActivityDates(getActivityDates());
-    };
-
-    // Listen for storage events from other tabs/windows
-    window.addEventListener('storage', handleStorageChange);
-    
-    // Listen for custom event from same tab (when recordActivity is called)
-    window.addEventListener('dsa-activity-updated', handleStorageChange);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('dsa-activity-updated', handleStorageChange);
-    };
+    setActivityDates(getActivityDates());
   }, []);
 
   const { gridDates, currentStreak, longestStreak } = useMemo(() => {

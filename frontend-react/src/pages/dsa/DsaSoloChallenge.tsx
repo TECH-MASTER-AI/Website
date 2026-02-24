@@ -12,10 +12,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Timer, Trophy, ArrowLeft, Loader2, CheckCircle2, XCircle, Play, Send, RotateCcw } from "lucide-react";
+import { fetchRandomSlug, fetchDsaQuestionById } from "@/features/dsa/api/questions";
+import type { DsaQuestionDetail } from "@/features/dsa/api/questions";
 import { getDsaProblemList } from "@/data/dsaProblems";
-import { getVisibleTestCases, getAllTestCases } from "@/data/dsaTestCases";
+import { getVisibleTestCases, getAllTestCases, getTestCasesByProblemId } from "@/data/dsaTestCases";
 import { executeCode } from "@/services/codeExecutionService";
+import { addSolvedProblem, syncSolvedToBackend } from "@/features/dsa/profile/dsaProfileStore";
+import { recordActivity } from "@/features/dsa/streak/dsaActivityStore";
 import { toast } from "sonner";
+
+const DEFAULT_BOILERPLATE: Record<string, string> = {
+  python: "# Your code",
+  java: "class Solution {\n    // Your code\n}",
+  cpp: "class Solution {\npublic:\n    // Your code\n};",
+  c: "// Your code",
+};
 
 function getEntryPoint(
   problemId: string | undefined,
@@ -32,6 +43,15 @@ function getEntryPoint(
     .map((part, i) => (i === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1)))
     .join("");
   return { functionName, paramOrder };
+}
+
+/** Normalize API test cases (input/output or input/expected) to { input, expected }. */
+function normalizeTestCases(tcs: unknown[]): Array<{ input: any; expected: any }> {
+  if (!Array.isArray(tcs)) return [];
+  return tcs.map((tc: any) => ({
+    input: tc?.input,
+    expected: tc?.expected ?? tc?.output,
+  })).filter(tc => tc.input !== undefined);
 }
 
 interface TestCaseResult {
@@ -51,13 +71,14 @@ const LANGUAGES = [
   { value: "c", label: "C", monaco: "c" },
 ];
 
+const VISIBLE_COUNT = 3;
+
 export default function DsaSoloChallenge() {
-  const [problem] = useState(() => {
-    const list = getDsaProblemList();
-    return list[Math.floor(Math.random() * list.length)];
-  });
+  const [problem, setProblem] = useState<DsaQuestionDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [language, setLanguage] = useState("python");
-  const [code, setCode] = useState(problem?.boilerplate?.python ?? "# Your code");
+  const [code, setCode] = useState(DEFAULT_BOILERPLATE.python);
   const [startTime] = useState(Date.now());
   const [elapsed, setElapsed] = useState(0);
   const [solved, setSolved] = useState(false);
@@ -67,9 +88,50 @@ export default function DsaSoloChallenge() {
   const [activeTab, setActiveTab] = useState<"problem" | "results">("problem");
 
   useEffect(() => {
-    if (problem?.boilerplate) {
-      const langCode = (problem.boilerplate as Record<string, string>)[language];
-      if (langCode) setCode(langCode);
+    let cancelled = false;
+    (async () => {
+      try {
+        try {
+          const { slug } = await fetchRandomSlug();
+          if (cancelled) return;
+          const { item } = await fetchDsaQuestionById(slug);
+          if (cancelled) return;
+          setProblem(item);
+        } catch {
+          const fallbackList = getDsaProblemList();
+          if (fallbackList.length === 0) throw new Error("No problems available.");
+          const pick = fallbackList[Math.floor(Math.random() * fallbackList.length)];
+          const tcs = getTestCasesByProblemId(pick.id);
+          setProblem({
+            id: pick.id,
+            title: pick.title,
+            difficulty: pick.difficulty,
+            acceptance: pick.acceptance,
+            tags: pick.tags,
+            description: pick.description,
+            examples: pick.examples,
+            constraints: pick.constraints,
+            testCases: tcs.map((tc) => ({ input: tc.input, expected: tc.expected })),
+            isPremium: false,
+            likes: 0,
+            dislikes: 0,
+          });
+        }
+        if (!cancelled) setCode(DEFAULT_BOILERPLATE.python);
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : "Failed to load problem");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (problem?.id && language) {
+      setCode(DEFAULT_BOILERPLATE[language] ?? DEFAULT_BOILERPLATE.python);
     }
   }, [language, problem?.id]);
 
@@ -82,41 +144,30 @@ export default function DsaSoloChallenge() {
     return () => clearInterval(t);
   }, [solved, startTime]);
 
+  const apiTestCases = problem ? normalizeTestCases(problem.testCases ?? []) : [];
+  const hasApiTestCases = apiTestCases.length > 0;
+  const visibleTestCases = hasApiTestCases
+    ? apiTestCases.slice(0, VISIBLE_COUNT)
+    : (problem ? getVisibleTestCases(problem.id) : []);
+  const allTestCases = hasApiTestCases
+    ? apiTestCases
+    : (problem ? getAllTestCases(problem.id) : []);
+
   const runTests = useCallback(async (submitAll: boolean) => {
     if (!problem) return;
-    
-    // First try to get test cases from problem examples (always available)
-    let problemTestCases = problem.examples.map((ex) => ({
-      input: ex.input,
-      expected: ex.output,
-    }));
-
-    // If submitting all, try to fetch additional test cases from database
-    if (submitAll) {
-      try {
-        const testCasesFromData = await getAllTestCases(problem.id);
-        if (testCasesFromData.length > 0) {
-          problemTestCases = testCasesFromData.map((tc) => ({
-            input: tc.input,
-            expected: tc.expected,
-          }));
-        }
-      } catch (error) {
-        // If database fetch fails, use problem examples
-        console.log("Using problem examples as fallback");
-      }
-    }
-      
-    if (problemTestCases.length === 0) {
+    const testCasesToUse = submitAll ? allTestCases : visibleTestCases;
+    if (testCasesToUse.length === 0) {
       toast.error("No test cases available for this problem.");
       return;
     }
-
+    const problemTestCases = testCasesToUse.map((tc) => ({
+      input: tc.input,
+      expected: tc.expected,
+    }));
     const entryPoint = getEntryPoint(problem.id, problemTestCases);
     setJudgeStatus(submitAll ? "submitting" : "running");
     setTestCaseResults([]);
     setActiveTab("results");
-    
     try {
       const result = await executeCode(
         code,
@@ -140,6 +191,11 @@ export default function DsaSoloChallenge() {
       if (submitAll && allPassed) {
         setSolved(true);
         setShowResult(true);
+        if (problem?.id) {
+          addSolvedProblem(problem.id);
+          recordActivity();
+          syncSolvedToBackend(problem.id, { language }).catch(() => {});
+        }
         toast.success("All test cases passed! Challenge complete.");
       } else if (
         result.overallStatus === "compilation_error" ||
@@ -153,42 +209,15 @@ export default function DsaSoloChallenge() {
         const passed = result.results.filter((r: any) => r.passed).length;
         toast.success(`${passed}/${result.results.length} sample test cases passed. Submit to check all.`);
       }
-    } catch (error) {
-      console.error("Execution error:", error);
-      
-      // Show helpful error message based on language
-      const languageSetup: Record<string, string> = {
-        python: "Python is not installed. Install Python from python.org",
-        java: "Java JDK is not installed. Install JDK from oracle.com/java",
-        cpp: "C++ compiler (g++) is not installed. Install MinGW or GCC",
-        c: "C compiler (gcc) is not installed. Install MinGW or GCC",
-      };
-      
-      const setupMsg = languageSetup[language] || "Compiler not found";
-      toast.error(`⚠️ Backend execution failed: ${setupMsg}`, { duration: 5000 });
-      
-      // Show mock results for demo purposes
-      const mockResults: TestCaseResult[] = problemTestCases.map((tc, idx) => ({
-        id: idx + 1,
-        input: typeof tc.input === "object" ? JSON.stringify(tc.input) : String(tc.input),
-        expectedOutput: typeof tc.expected === "object" ? JSON.stringify(tc.expected) : String(tc.expected),
-        userOutput: "⚠️ Execution unavailable",
-        passed: false,
-        error: `${setupMsg}. Backend cannot execute ${language} code.`,
-      }));
-      
-      setTestCaseResults(mockResults);
-      setActiveTab("results");
+    } catch {
+      toast.error("Execution failed. Is the backend running on port 3001?");
     } finally {
       setJudgeStatus("idle");
     }
-  }, [problem, code, language]);
+  }, [problem, code, language, visibleTestCases, allTestCases]);
 
   const handleReset = () => {
-    if (problem?.boilerplate) {
-      const langCode = (problem.boilerplate as Record<string, string>)[language];
-      if (langCode) setCode(langCode);
-    }
+    setCode(DEFAULT_BOILERPLATE[language] ?? DEFAULT_BOILERPLATE.python);
     setTestCaseResults([]);
     setActiveTab("problem");
   };
@@ -210,10 +239,43 @@ export default function DsaSoloChallenge() {
         )
       : 0;
 
-  if (!problem) return null;
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading challenge...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !problem) {
+    return (
+      <div className="flex-1 p-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/dsa/duels" className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Link>
+          </Button>
+        </div>
+        <Card className="mt-4 border-destructive/50">
+          <CardContent className="pt-6">
+            <p className="text-destructive">{error ?? "Problem not found."}</p>
+            <p className="text-sm text-muted-foreground mt-2">Ensure the backend is running and the DB is seeded.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const examples = problem.examples ?? [];
+  const constraints = problem.constraints ?? [];
 
   return (
-    <div className="flex-1 flex flex-col h-[calc(100vh-4rem)] overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-[500px] overflow-hidden">
       {/* Header bar */}
       <div className="flex items-center gap-4 px-4 py-2 border-b bg-background/80 shrink-0 flex-wrap">
         <Button variant="ghost" size="sm" asChild>
@@ -266,7 +328,7 @@ export default function DsaSoloChallenge() {
                 <p className="whitespace-pre-wrap text-muted-foreground text-sm leading-relaxed">
                   {problem.description}
                 </p>
-                {problem.examples.map((ex, i) => (
+                {examples.map((ex, i) => (
                   <div key={i} className="rounded-lg bg-muted/50 p-3 space-y-1">
                     <p className="text-xs font-semibold text-muted-foreground">Example {i + 1}</p>
                     <p className="font-mono text-sm"><span className="text-muted-foreground">Input:</span> {ex.input}</p>
@@ -276,11 +338,11 @@ export default function DsaSoloChallenge() {
                     )}
                   </div>
                 ))}
-                {problem.constraints.length > 0 && (
+                {constraints.length > 0 && (
                   <div>
                     <p className="text-xs font-semibold text-muted-foreground mb-1">Constraints:</p>
                     <ul className="list-disc list-inside text-xs text-muted-foreground space-y-0.5">
-                      {problem.constraints.map((c, i) => (
+                      {constraints.map((c, i) => (
                         <li key={i} className="font-mono">{c}</li>
                       ))}
                     </ul>
