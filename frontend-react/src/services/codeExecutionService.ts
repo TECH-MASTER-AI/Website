@@ -1,10 +1,9 @@
 // Code Execution Service - Connects to real backend execution server
 // Backend API: http://localhost:3001/api/execute
 
-const EXECUTE_API =
-  import.meta.env.DEV
-    ? 'http://localhost:3001/api/execute'
-    : '/api/execute';
+import { withApiBase } from "@/lib/apiBase";
+
+const EXECUTE_API = withApiBase("/api/execute");
 
 
 export interface ExecutionResult {

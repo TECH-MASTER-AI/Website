@@ -11,6 +11,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Send } from 'lucide-react';
 import { searchKnowledgeBase } from '../data/knowledgeBase';
+import { withApiBase } from '@/lib/apiBase';
 
 // Message interface
 interface Message {
@@ -78,10 +79,10 @@ const ChatBot = () => {
         return;
       }
 
-      // 🤖 STEP 2: Not in knowledge base - call Groq API via Netlify function
+      // 🤖 STEP 2: Not in knowledge base - call backend Groq API
       const conversationHistory = messages.slice(-5);
 
-      const response = await fetch('/.netlify/functions/chat', {
+      const response = await fetch(withApiBase('/api/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

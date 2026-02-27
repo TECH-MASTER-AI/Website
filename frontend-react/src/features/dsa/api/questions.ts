@@ -18,6 +18,8 @@ export interface DsaQuestionDetail extends DsaQuestionListItem {
   dislikes: number;
 }
 
+import { withApiBase } from "@/lib/apiBase";
+
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
   if (!res.ok) {
@@ -27,8 +29,8 @@ async function fetchJson<T>(url: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-// Uses /api/dsa - proxied to backend in dev (vite), rewritten to Netlify function in prod (netlify.toml)
-const BASE = "/api/dsa";
+// Uses /api/dsa - dev proxy or VITE_API_URL in production
+const BASE = withApiBase("/api/dsa");
 
 export function fetchDsaQuestions() {
   return fetchJson<{ items: DsaQuestionListItem[] }>(`${BASE}/questions`);
@@ -37,4 +39,3 @@ export function fetchDsaQuestions() {
 export function fetchDsaQuestionById(id: string) {
   return fetchJson<{ item: DsaQuestionDetail }>(`${BASE}/questions/${encodeURIComponent(id)}`);
 }
-
