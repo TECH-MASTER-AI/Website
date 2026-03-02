@@ -28,7 +28,7 @@ export default function DsaDashboard() {
           </div>
           <div>
             <h1 className="text-2xl font-bold">
-              {user ? `Welcome, ${username}` : "Flow State Dashboard"}
+              {user ? `Welcome, ${username}` : "DSA Dashboard"}
             </h1>
             <p className="text-muted-foreground mt-1">
               Track progress, solve problems, and climb the leaderboard.

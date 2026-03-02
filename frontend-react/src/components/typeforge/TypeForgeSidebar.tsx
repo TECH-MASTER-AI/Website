@@ -51,7 +51,7 @@ export function TypeForgeSidebar({ className }: { className?: string }) {
               <div className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.6)]" />
             )}
             <Code2 className="h-4 w-4" />
-            <span>Flow State</span>
+            <span>DSA</span>
           </Link>
 
           {/* Code Royale (1v1 Duels) Link */}

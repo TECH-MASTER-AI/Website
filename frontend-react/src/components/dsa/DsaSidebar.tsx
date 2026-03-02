@@ -175,7 +175,7 @@ export function DsaSidebar({ className }: { className?: string }) {
                     )} />
                 )}
                 <Code2 className="h-4 w-4" />
-                <span>Flow State</span>
+                <span>DSA</span>
                 {isDsaExpanded ? (
                     <ChevronDown className="ml-auto h-4 w-4 opacity-50" />
                 ) : (

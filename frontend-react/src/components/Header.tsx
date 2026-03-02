@@ -96,7 +96,7 @@ const Header = memo(() => {
       show: true,
     },
     {
-      title: 'Flow State',
+      title: 'DSA',
       action: () => {
         navigate('/dsa/problems');
       },

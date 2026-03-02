@@ -48,7 +48,7 @@ export function DsaNavbar() {
              <Code2 className="h-5 w-5 text-primary" />
              <div className="absolute inset-0 bg-primary/20 blur-lg rounded-lg animate-pulse" />
           </div>
-          <span className="bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">Flow State</span>
+          <span className="bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">DSA</span>
         </Link>
         
         {/* Desktop Nav */}

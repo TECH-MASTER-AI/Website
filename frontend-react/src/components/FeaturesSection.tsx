@@ -15,7 +15,7 @@ const FeaturesSection = memo(() => {
     },
     {
       id: '02',
-      title: 'Flow State',
+      title: 'DSA',
       description: 'Where thought aligns with execution. Solve without friction, progress without resistance. Enter deep focus, master complexity, emerge sharper.',
       icon: <BookOpen className="w-6 h-6 sm:w-8 sm:h-8" />,
       path: '/dsa/problems',

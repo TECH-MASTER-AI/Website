@@ -89,7 +89,7 @@ export const TECHMASTERAI_KNOWLEDGE = {
   // Platform Features
   features: [
     {
-      name: "Flow State (DSA Practice)",
+      name: "DSA Practice",
       description: "Practice 100+ curated DSA problems with Easy, Medium, and Hard difficulty levels. Real-time code execution, success rate tracking, and smart recommendations based on your skill level. Perfect for interview preparation!",
       icon: "💻",
       details: {

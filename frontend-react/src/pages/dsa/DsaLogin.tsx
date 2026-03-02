@@ -54,7 +54,7 @@ export default function DsaLogin() {
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-bold">Log in</h1>
           <p className="text-muted-foreground text-sm">
-            Enter your email and password to access Flow State.
+            Enter your email and password to access DSA.
           </p>
         </div>
         <Form {...form}>
