@@ -465,6 +465,117 @@ async function runTestCaseJava(tempDir, testCase, entryPoint, timeoutMs = 5000) 
 }
 
 /**
+ * Convert structured test input into stdin for C/C++ executables.
+ * Object inputs are emitted in paramOrder (or key order), one value per line.
+ */
+function formatInputValueForStdin(value) {
+    if (value === null || value === undefined) return '';
+    if (Array.isArray(value)) {
+        if (value.every((v) => typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean')) {
+            return value.map((v) => String(v)).join(' ');
+        }
+        return JSON.stringify(value);
+    }
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
+}
+
+function buildStdinFromTestInput(input, entryPoint) {
+    if (typeof input === 'object' && input !== null && !Array.isArray(input)) {
+        const keys = entryPoint?.paramOrder?.length
+            ? entryPoint.paramOrder.filter((k) => Object.prototype.hasOwnProperty.call(input, k))
+            : Object.keys(input);
+        const lines = keys.map((k) => formatInputValueForStdin(input[k]));
+        return `${lines.join('\n')}\n`;
+    }
+    return `${formatInputValueForStdin(input)}\n`;
+}
+
+function runBinaryWithInput(binary, args, cwd, stdin, timeoutMs = 5000) {
+    return new Promise((resolve, reject) => {
+        const child = spawn(binary, args, { cwd });
+        let stdout = '';
+        let stderr = '';
+        let timedOut = false;
+
+        const timeout = setTimeout(() => {
+            timedOut = true;
+            child.kill('SIGKILL');
+        }, timeoutMs);
+
+        child.stdout.on('data', (chunk) => {
+            stdout += chunk.toString();
+        });
+        child.stderr.on('data', (chunk) => {
+            stderr += chunk.toString();
+        });
+        child.on('error', (error) => {
+            clearTimeout(timeout);
+            reject(error);
+        });
+        child.on('close', (code, signal) => {
+            clearTimeout(timeout);
+            if (timedOut) {
+                return reject(new Error('Execution timed out'));
+            }
+            resolve({ code, signal, stdout, stderr });
+        });
+
+        if (stdin) child.stdin.write(stdin);
+        child.stdin.end();
+    });
+}
+
+/**
+ * Run one C/C++ test case by piping test input into compiled executable stdin.
+ */
+async function runTestCaseNative(tempDir, language, testCase, entryPoint, timeoutMs = 5000) {
+    const start = Date.now();
+    const binary = os.platform() === 'win32' ? 'main.exe' : './main';
+    const args = [];
+    const stdin = buildStdinFromTestInput(testCase.input, entryPoint);
+
+    try {
+        const { code, stdout, stderr } = await runBinaryWithInput(binary, args, tempDir, stdin, timeoutMs);
+        const out = stdout.replace(/\r\n/g, '\n').trim();
+        const err = stderr.replace(/\r\n/g, '\n').trim();
+
+        if (code !== 0) {
+            return {
+                passed: false,
+                userOutput: out,
+                error: err || `Runtime error (exit code ${code})`,
+                executionTime: Date.now() - start,
+            };
+        }
+
+        let actual = out;
+        try {
+            actual = JSON.parse(out);
+        } catch {
+            actual = out;
+        }
+
+        const expected = testCase.expected;
+        const passed = compareOutput(actual, expected, false);
+        return {
+            passed,
+            userOutput: typeof actual === 'object' ? JSON.stringify(actual) : String(actual),
+            expectedOutput: typeof expected === 'object' ? JSON.stringify(expected) : String(expected),
+            error: err || undefined,
+            executionTime: Date.now() - start,
+        };
+    } catch (e) {
+        return {
+            passed: false,
+            userOutput: '',
+            error: `Runtime error: ${e.message || 'Unknown'}`,
+            executionTime: Date.now() - start,
+        };
+    }
+}
+
+/**
  * POST /api/execute/run
  * Run code: if testCases (+ optional entryPoint) provided, LeetCode-style auto-call; else legacy stdin run.
  */
@@ -532,6 +643,17 @@ router.post('/run', async (req, res) => {
                         testCases: [],
                     });
                 }
+            } else if (language === 'c' || language === 'cpp') {
+                await fs.writeFile(path.join(tempDir, langConfig.fileName), fileContent);
+                try {
+                    await execAsync(langConfig.compileCommand(), { cwd: tempDir, timeout: 10000 });
+                } catch (compileError) {
+                    return res.json({
+                        status: 'compilation_error',
+                        error: compileError.stderr || compileError.message || 'Compilation failed',
+                        testCases: [],
+                    });
+                }
             } else {
                 await fs.writeFile(path.join(tempDir, langConfig.fileName), fileContent);
             }
@@ -541,8 +663,17 @@ router.post('/run', async (req, res) => {
                 let runResult;
                 if (language === 'python') {
                     runResult = await runTestCasePython(tempDir, tc, derivedEntry, fileContent, 5000);
-                } else {
+                } else if (language === 'java') {
                     runResult = await runTestCaseJava(tempDir, tc, derivedEntry, 5000);
+                } else if (language === 'c' || language === 'cpp') {
+                    runResult = await runTestCaseNative(tempDir, language, tc, derivedEntry, 5000);
+                } else {
+                    runResult = {
+                        passed: false,
+                        userOutput: '',
+                        error: 'LeetCode-style auto-call only supported for Python and Java',
+                        executionTime: 0
+                    };
                 }
                 results.push({
                     id: i + 1,
@@ -655,6 +786,19 @@ router.post('/submit', async (req, res) => {
                     totalTestCases: normalizedTests.length,
                 });
             }
+        } else if (language === 'c' || language === 'cpp') {
+            await fs.writeFile(path.join(tempDir, fileName), fileContent);
+            try {
+                await execAsync(langConfig.compileCommand(), { cwd: tempDir, timeout: 10000 });
+            } catch (compileError) {
+                return res.json({
+                    status: 'compilation_error',
+                    error: compileError.stderr || compileError.message || 'Compilation failed',
+                    testCases: [],
+                    passedTestCases: 0,
+                    totalTestCases: normalizedTests.length,
+                });
+            }
         } else {
             await fs.writeFile(path.join(tempDir, fileName), fileContent);
         }
@@ -670,8 +814,10 @@ router.post('/submit', async (req, res) => {
                 runResult = await runTestCasePython(tempDir, tc, derivedEntry, fileContent, 5000);
             } else if (language === 'java') {
                 runResult = await runTestCaseJava(tempDir, tc, derivedEntry, 5000);
+            } else if (language === 'c' || language === 'cpp') {
+                runResult = await runTestCaseNative(tempDir, language, tc, derivedEntry, 5000);
             } else {
-                runResult = { passed: false, userOutput: '', error: 'LeetCode-style auto-call only supported for Python and Java', executionTime: 0 };
+                runResult = { passed: false, userOutput: '', error: 'LeetCode-style auto-call only supported for this language', executionTime: 0 };
             }
 
             if (runResult.passed) passedCount++;
@@ -715,4 +861,3 @@ router.post('/submit', async (req, res) => {
 });
 
 export default router;
-
