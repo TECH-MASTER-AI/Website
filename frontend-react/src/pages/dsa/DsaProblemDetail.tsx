@@ -41,7 +41,6 @@ import {
     Cpu,
     HardDrive,
     Activity,
-    MessageSquare,
     Pause,
     StopCircle,
     Clock,
@@ -57,8 +56,6 @@ import { executeCode } from "@/services/codeExecutionService";
 import { DsaAiHelper } from "@/components/dsa/DsaAiHelper";
 import { DraggableAiPopup } from "@/components/dsa/DraggableAiPopup";
 import { ProblemEngagementBar } from "@/components/dsa/ProblemEngagementBar";
-import { ProblemFeedback } from "@/components/dsa/ProblemFeedback";
-import { FeedbackModal } from "@/components/dsa/FeedbackModal";
 import { analyzeComplexity, getComplexityBadgeClass } from "@/utils/codeComplexity";
 import { useTimerStopwatch } from "@/hooks/useTimerStopwatch";
 import { getTestCasesByProblemId } from "@/data/dsaTestCases";
@@ -139,7 +136,6 @@ export default function DsaProblemDetailNew() {
     const [layoutMode, setLayoutMode] = useState<LayoutMode>("layout-a");
     const [focusMode, setFocusMode] = useState(false);
     const [editorRef, setEditorRef] = useState<any>(null);
-    const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [focusSidebarOpen, setFocusSidebarOpen] = useState(false);
     
     // Favorites state with localStorage persistence
@@ -1181,21 +1177,13 @@ class Solution {
                                 </div>
                             )}
 
-                            {/* Feedback Section */}
-                            {id && <ProblemFeedback problemSlug={id} />}
                         </div>
 
                         {/* Engagement Bar - Fixed at bottom */}
                         <ProblemEngagementBar
                             commentCount={commentCount}
                             isFavorited={isFavorited}
-                            onComment={() => {
-                                // Scroll to feedback section
-                                const feedbackSection = document.querySelector('.problem-feedback');
-                                if (feedbackSection) {
-                                    feedbackSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                }
-                            }}
+                            onComment={() => {}}
                             onFavorite={toggleFavorite}
                         />
                     </div>
@@ -1469,18 +1457,8 @@ class Solution {
                                 </Button>
                             </div>
 
-                            {/* Right side - Feedback & AI Toggle */}
+                            {/* Right side - AI Toggle */}
                             <div className="flex items-center gap-2">
-                                {!focusMode && (
-                                    <button
-                                        onClick={() => setShowFeedbackModal(true)}
-                                        className="h-[36px] px-3 rounded-lg flex items-center gap-2 bg-white/10 hover:bg-white/15 hover:-translate-y-0.5 hover:shadow-lg active:scale-95 transition-all duration-200 cursor-pointer group text-gray-900 dark:text-slate-400 hover:text-gray-900 dark:text-white text-sm font-medium"
-                                        title="Submit feedback"
-                                    >
-                                        <MessageSquare className="h-4 w-4" />
-                                        Feedback
-                                    </button>
-                                )}
                                 {!focusMode && layoutMode !== 'code-only' && (
                                     <button
                                         onClick={() => setShowAiHelper(!showAiHelper)}
@@ -1931,8 +1909,6 @@ class Solution {
                 </DialogContent>
             </Dialog>
 
-            <FeedbackModal open={showFeedbackModal} onOpenChange={setShowFeedbackModal} problemSlug={id || ''} />
-
             {/* Reset Confirmation Modal */}
             <Dialog open={showResetModal} onOpenChange={setShowResetModal}>
                 <DialogContent className="bg-white dark:bg-[#1a1f2e] border border-gray-200 dark:border-transparent border-gray-200 dark:border-white/10">
@@ -1996,7 +1972,6 @@ class Solution {
         </div>
     );
 }
-
 
 
 
