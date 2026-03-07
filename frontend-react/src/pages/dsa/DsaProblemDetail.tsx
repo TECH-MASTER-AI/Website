@@ -647,15 +647,6 @@ useEffect(() => {
             // Allow ESC for focus mode
             if (e.key === 'Escape') return;
             
-            // Block Ctrl+C, Ctrl+X, Ctrl+A (but allow Ctrl+V for paste)
-            if (e.ctrlKey || e.metaKey) {
-                if (['c', 'x', 'a'].includes(e.key.toLowerCase())) {
-                    e.preventDefault();
-                    toast.error("Copy/Cut operations are disabled");
-                    return false;
-                }
-            }
-            
             // Block F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C, Ctrl+U (dev tools)
             if (
                 e.key === 'F12' ||
@@ -673,46 +664,6 @@ useEffect(() => {
             return false;
         };
 
-        // Prevent text selection
-        const handleSelectStart = (e: Event) => {
-            const target = e.target as HTMLElement;
-            // Allow selection in Monaco editor
-            if (target.closest('.monaco-editor')) {
-                return true;
-            }
-            e.preventDefault();
-            return false;
-        };
-
-        // Prevent copy event
-        const handleCopy = (e: ClipboardEvent) => {
-            const target = e.target as HTMLElement;
-            // Allow copy in Monaco editor
-            if (target.closest('.monaco-editor')) {
-                return true;
-            }
-            e.preventDefault();
-            toast.error("Copy operation is disabled");
-            return false;
-        };
-
-        // Allow paste everywhere (removed restriction)
-        const handlePaste = (e: ClipboardEvent) => {
-            // Paste is now allowed
-            return true;
-        };
-
-        // Prevent cut event
-        const handleCut = (e: ClipboardEvent) => {
-            const target = e.target as HTMLElement;
-            // Allow cut in Monaco editor
-            if (target.closest('.monaco-editor')) {
-                return true;
-            }
-            e.preventDefault();
-            return false;
-        };
-
         // Prevent drag
         const handleDragStart = (e: DragEvent) => {
             e.preventDefault();
@@ -721,19 +672,11 @@ useEffect(() => {
 
         document.addEventListener('keydown', handleKeyDown);
         document.addEventListener('contextmenu', handleContextMenu);
-        document.addEventListener('selectstart', handleSelectStart);
-        document.addEventListener('copy', handleCopy);
-        document.addEventListener('paste', handlePaste);
-        document.addEventListener('cut', handleCut);
         document.addEventListener('dragstart', handleDragStart);
 
         return () => {
             document.removeEventListener('keydown', handleKeyDown);
             document.removeEventListener('contextmenu', handleContextMenu);
-            document.removeEventListener('selectstart', handleSelectStart);
-            document.removeEventListener('copy', handleCopy);
-            document.removeEventListener('paste', handlePaste);
-            document.removeEventListener('cut', handleCut);
             document.removeEventListener('dragstart', handleDragStart);
         };
     }, []);
@@ -1925,7 +1868,6 @@ useEffect(() => {
         </div>
     );
 }
-
 
 
 
