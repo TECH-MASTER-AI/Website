@@ -60,10 +60,28 @@ export default function TypeForgeLayout() {
     <div className="min-h-screen flex flex-col">
       {/* Top Header */}
       <header className={cn(
-        "h-16 flex items-center justify-between px-6 border-b shrink-0 transition-colors duration-300 backdrop-blur-sm fixed top-0 left-0 right-0 z-50",
+        "h-20 flex items-center justify-between px-6 border-b shrink-0 transition-colors duration-300 backdrop-blur-sm fixed top-0 left-0 right-0 z-50",
         "border-slate-200 dark:border-white/10 bg-white/80 dark:bg-[#0B0F19]"
       )}>
-         <div className="flex items-center gap-4">
+         <div className="flex flex-col items-start gap-1">
+            <div className="flex items-center gap-3">
+              <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={handleBackClick}
+                  className={cn(
+                      "text-muted-foreground transition-colors",
+                      "hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10"
+                  )}
+              >
+                  <ChevronLeft className="h-6 w-6" />
+              </Button>
+              <h2 className={cn(
+                  "text-xl font-semibold tracking-tight transition-colors",
+                  "text-slate-900 dark:text-white"
+              )}>{getPageTitle()}</h2>
+            </div>
+
             {/* Sidebar Toggle Button */}
             <Button 
                 variant="ghost" 
@@ -77,22 +95,6 @@ export default function TypeForgeLayout() {
             >
                 {isSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
-            
-            <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={handleBackClick}
-                className={cn(
-                    "text-muted-foreground transition-colors",
-                    "hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10"
-                )}
-            >
-                <ChevronLeft className="h-6 w-6" />
-            </Button>
-            <h2 className={cn(
-                "text-xl font-semibold tracking-tight transition-colors",
-                "text-slate-900 dark:text-white"
-            )}>{getPageTitle()}</h2>
          </div>
          
          <div className="flex items-center gap-4">
@@ -286,7 +288,7 @@ export default function TypeForgeLayout() {
         <div className="absolute inset-0 cyber-grid" />
       </div>
 
-      <div className="flex flex-1 pt-16">
+      <div className="flex flex-1 pt-20">
         {/* Sidebar */}
         {isSidebarOpen && <TypeForgeSidebar />}
         

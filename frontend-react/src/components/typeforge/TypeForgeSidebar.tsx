@@ -15,7 +15,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 export function TypeForgeSidebar({ className }: { className?: string }) {
   const location = useLocation();
   const { theme } = useTheme();
-  const [isTypeForgeExpanded, setIsTypeForgeExpanded] = useState(true);
+  const [isTypeForgeExpanded, setIsTypeForgeExpanded] = useState(false);
 
   const toggleTypeForgeMenu = (e: React.MouseEvent) => {
     e.preventDefault();

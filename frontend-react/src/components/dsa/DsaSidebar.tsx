@@ -31,7 +31,7 @@ interface SidebarSectionProps {
   children: React.ReactNode;
 }
 
-function SidebarSection({ title, defaultOpen = true, children }: SidebarSectionProps) {
+function SidebarSection({ title, defaultOpen = false, children }: SidebarSectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const { theme } = useTheme();
 

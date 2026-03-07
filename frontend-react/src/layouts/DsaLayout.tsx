@@ -188,10 +188,28 @@ export function DsaLayout() {
         <div className="relative z-10 flex flex-col h-screen overflow-hidden">
           {/* New Top Header Matching Design */}
           <header className={cn(
-            "h-16 flex items-center justify-between px-6 border-b shrink-0 transition-colors duration-300 backdrop-blur-sm",
+            "h-20 flex items-center justify-between px-6 border-b shrink-0 transition-colors duration-300 backdrop-blur-sm",
             "border-slate-200 dark:border-white/10 bg-white/80 dark:bg-[#0B0F19]"
           )}>
-             <div className="flex items-center gap-4">
+             <div className="flex flex-col items-start gap-1">
+                <div className="flex items-center gap-3">
+                  <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={handleBackClick}
+                      className={cn(
+                          "text-muted-foreground transition-colors",
+                          "hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10"
+                      )}
+                  >
+                      <ChevronLeft className="h-6 w-6" />
+                  </Button>
+                  <h2 className={cn(
+                      "text-xl font-semibold tracking-tight transition-colors",
+                      "text-slate-900 dark:text-white"
+                  )}>{getPageTitle()}</h2>
+                </div>
+
                 {/* Sidebar Toggle Button - Hide on duel room */}
                 {!location.pathname.startsWith("/dsa/duels/room/") && (
                   <Button 
@@ -207,22 +225,6 @@ export function DsaLayout() {
                       {isSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
                   </Button>
                 )}
-                
-                <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={handleBackClick}
-                    className={cn(
-                        "text-muted-foreground transition-colors",
-                        "hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10"
-                    )}
-                >
-                    <ChevronLeft className="h-6 w-6" />
-                </Button>
-                <h2 className={cn(
-                    "text-xl font-semibold tracking-tight transition-colors",
-                    "text-slate-900 dark:text-white"
-                )}>{getPageTitle()}</h2>
              </div>
              
              <div className="flex items-center gap-4">
