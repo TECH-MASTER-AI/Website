@@ -148,7 +148,7 @@ export function DsaLayout() {
     const path = location.pathname;
     
     if (path === '/dsa/dashboard') return 'Dashboard';
-    if (path === '/dsa/problems' || path.startsWith('/dsa/problem/')) return 'Flow State';
+    if (path === '/dsa/problems' || path.startsWith('/dsa/problem/')) return 'DSA';
     if (path === '/dsa/leaderboard') return 'Leaderboard';
     // Check for duel room first (more specific), then duels lobby
     if (path.startsWith('/dsa/duels/room/')) return 'Code Royale';
@@ -167,7 +167,7 @@ export function DsaLayout() {
       return 'Type Forge';
     }
     
-    return 'Flow State'; // Default fallback
+    return 'DSA'; // Default fallback
   };
 
 
