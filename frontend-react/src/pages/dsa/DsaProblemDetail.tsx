@@ -63,16 +63,21 @@ import { getTestCasesByProblemId } from "@/data/dsaTestCases";
 const STORAGE_KEY = (id: string) => `dsa_code_${id}`;
 
 /** Derive LeetCode-style entry point from problem slug and first test input. */
+function deriveFunctionName(problemId: string | undefined): string {
+    if (!problemId) return 'solution';
+    return problemId
+        .split('-')
+        .map((part, i) => (i === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1)))
+        .join('');
+}
+
 function getEntryPoint(problemId: string | undefined, testCases: Array<{ input: any; expected: any }>): { functionName: string; paramOrder: string[] } | null {
     if (!problemId || !testCases.length) return null;
     const firstInput = testCases[0]?.input;
     const paramOrder = firstInput && typeof firstInput === 'object' && !Array.isArray(firstInput)
         ? Object.keys(firstInput)
         : [];
-    const functionName = problemId
-        .split('-')
-        .map((part, i) => (i === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1)))
-        .join('');
+    const functionName = deriveFunctionName(problemId);
     return { functionName, paramOrder };
 }
 
@@ -403,17 +408,10 @@ class Solution {
     }
 }`, */
 
-java: (() => {
-    const slug = problem?.id || "solution";
+	java: (() => {
+	    const methodName = deriveFunctionName(problem?.id || id);
 
-    const methodName = slug
-        .split("-")
-        .map((part: string, i: number) =>
-            i === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1)
-        )
-        .join("");
-
-    return `// Java Solution Template
+	    return `// Java Solution Template
 import java.util.*;
 
 class Solution {
@@ -426,18 +424,16 @@ class Solution {
 
 
 
-        python: `# Python Solution Template
-def solution(input_data):
+	        python: (() => {
+	            const methodName = deriveFunctionName(problem?.id || id);
+	            return `# Python Solution Template
+def ${methodName}(input_data):
     """
     Write your solution here
     """
     # Your code here
-    return None
-
-if __name__ == "__main__":
-    # Test your solution
-    result = solution("test input")
-    print(result)`,
+    return None`;
+	        })(),
         c: `// C Solution Template
 #include <stdio.h>
 #include <stdlib.h>
@@ -557,31 +553,8 @@ int main() {
 
 // other languages are yet to check
 // New code starts
-	let newBoilerplate;
-
-if (newLanguage === "java" && problem) {
-    const methodName = problem.title
-        .replace(/[^a-zA-Z0-9 ]/g, "")
-        .split(" ")
-        .map((w: string, i: number) =>
-            i === 0
-                ? w.toLowerCase()
-                : w.charAt(0).toUpperCase() + w.slice(1)
-        )
-        .join("");
-
-    newBoilerplate = `import java.util.*;
-
-class Solution {
-    public Object ${methodName}(Object input) {
-        // Your code here
-        return null;
-    }
-}`;
-} else {
-    newBoilerplate =
+	let newBoilerplate =
         boilerplate[newLanguage as keyof typeof boilerplate] || boilerplate.java;
-}
 
 setCode(newBoilerplate);
 
@@ -625,31 +598,10 @@ useEffect(() => {
         return;
     }
 
-    if (language === "java" && problem) {
-        const methodName = problem.title
-            .replace(/[^a-zA-Z0-9 ]/g, "")
-            .split(" ")
-            .map((w: string, i: number) =>
-                i === 0
-                    ? w.toLowerCase()
-                    : w.charAt(0).toUpperCase() + w.slice(1)
-            )
-            .join("");
-
-        setCode(`import java.util.*;
-
-class Solution {
-    public Object ${methodName}(Object input) {
-        // Your code here
-        return null;
-    }
-}`);
-    } else {
-        setCode(
-            boilerplate[language as keyof typeof boilerplate] ||
-            boilerplate.java
-        );
-    }
+    setCode(
+        boilerplate[language as keyof typeof boilerplate] ||
+        boilerplate.java
+    );
 }, [id, language, problem]);
 
 
@@ -1972,7 +1924,6 @@ class Solution {
         </div>
     );
 }
-
 
 
 
