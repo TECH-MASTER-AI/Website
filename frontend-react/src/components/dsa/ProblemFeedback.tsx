@@ -122,47 +122,10 @@ export function ProblemFeedback({ problemSlug }: ProblemFeedbackProps) {
     }, [problemSlug, currentUser, sortBy, lastViewedTime]);
 
     useEffect(() => {
+        // Temporarily disable live feedback polling/subscriptions to prevent
+        // frequent UI reloads while solving a problem.
         fetchComments();
-
-        // Subscribe to real-time updates for comments
-        const commentsChannel = supabase
-            .channel(`comments:${problemSlug}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'problem_comments',
-                    filter: `problem_slug=eq.${problemSlug}`
-                },
-                () => {
-                    fetchComments();
-                }
-            )
-            .subscribe();
-
-        // Subscribe to real-time updates for likes
-        const likesChannel = supabase
-            .channel(`likes:${problemSlug}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'comment_likes'
-                },
-                () => {
-                    // Refresh comments to update like counts
-                    fetchComments();
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(commentsChannel);
-            supabase.removeChannel(likesChannel);
-        };
-    }, [problemSlug, fetchComments]);
+    }, [fetchComments]);
 
     // Mark comments as viewed when user interacts
     useEffect(() => {
@@ -504,7 +467,6 @@ export function ProblemFeedback({ problemSlug }: ProblemFeedbackProps) {
         </div>
     );
 }
-
 
 
 
