@@ -424,16 +424,17 @@ class Solution {
 
 
 
-	        python: (() => {
-	            const methodName = deriveFunctionName(problem?.id || id);
-	            return `# Python Solution Template
-def ${methodName}(input_data):
+		        python: (() => {
+		            const methodName = deriveFunctionName(problem?.id || id);
+		            return `# Python Solution Template
+def ${methodName}(*args, **kwargs):
     """
-    Write your solution here
+    Write your solution here.
+    Test inputs are passed as keyword args (e.g. nums=..., target=...) or positional args.
     """
     # Your code here
     return None`;
-	        })(),
+		        })(),
         c: `// C Solution Template
 #include <stdio.h>
 #include <stdlib.h>
@@ -1924,7 +1925,6 @@ useEffect(() => {
         </div>
     );
 }
-
 
 
 
