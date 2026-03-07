@@ -3,9 +3,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import { SupabaseAuthProvider } from "./contexts/SupabaseAuthContext";
+import { SupabaseAuthProvider, useSupabaseAuth } from "./contexts/SupabaseAuthContext";
 import { DsaLayout } from "./layouts/DsaLayout";
 import Index from "./pages/Index";
 
@@ -80,6 +80,28 @@ const ConditionalChatBot = () => {
   return <ChatBot />;
 };
 
+const RequireDsaAuth = () => {
+  const { user, loading } = useSupabaseAuth();
+  const location = useLocation();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-sm">Checking session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/dsa/login" replace state={{ from: location }} />;
+  }
+
+  return <Outlet />;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
@@ -139,21 +161,23 @@ const App = () => (
                 <Route index element={<Navigate to="/dsa/dashboard" replace />} />
                 <Route path="login" element={<DsaLogin />} />
                 <Route path="register" element={<DsaRegister />} />
-                <Route path="dashboard" element={<DsaDashboard />} />
-                <Route path="problems" element={<DsaProblems />} />
-                <Route path="problem/:id" element={<DsaProblemDetail />} />
-                <Route path="submissions" element={<DsaSubmissions />} />
-                <Route path="duels" element={<DsaDuelsLobby />} />
-                <Route path="duels/room/:roomId" element={<DsaDuelRoom />} />
-                <Route path="duels/solo" element={<DsaSoloChallenge />} />
-                <Route path="duels/daily" element={<DsaDailyChallenge />} />
-                <Route path="leaderboard" element={<DsaLeaderboard />} />
-                <Route path="profile" element={<DsaProfile />} />
-                <Route path="live" element={<ComingSoon />} />
-                <Route path="contest" element={<ComingSoon />} />
-                <Route path="discuss" element={<ComingSoon />} />
-                <Route path="calendar" element={<DsaCalendar />} />
-                <Route path="notes" element={<DsaNotes />} />
+                <Route element={<RequireDsaAuth />}>
+                  <Route path="dashboard" element={<DsaDashboard />} />
+                  <Route path="problems" element={<DsaProblems />} />
+                  <Route path="problem/:id" element={<DsaProblemDetail />} />
+                  <Route path="submissions" element={<DsaSubmissions />} />
+                  <Route path="duels" element={<DsaDuelsLobby />} />
+                  <Route path="duels/room/:roomId" element={<DsaDuelRoom />} />
+                  <Route path="duels/solo" element={<DsaSoloChallenge />} />
+                  <Route path="duels/daily" element={<DsaDailyChallenge />} />
+                  <Route path="leaderboard" element={<DsaLeaderboard />} />
+                  <Route path="profile" element={<DsaProfile />} />
+                  <Route path="live" element={<ComingSoon />} />
+                  <Route path="contest" element={<ComingSoon />} />
+                  <Route path="discuss" element={<ComingSoon />} />
+                  <Route path="calendar" element={<DsaCalendar />} />
+                  <Route path="notes" element={<DsaNotes />} />
+                </Route>
               </Route>
 
               {/* Coming Soon - standalone route */}
