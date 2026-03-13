@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Bot, Send, Sparkles, BookmarkPlus, Download, Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { withApiBase } from "@/lib/apiBase";
 
 interface ProblemContext {
   title: string;
@@ -27,7 +28,7 @@ interface DsaAiHelperProps {
   problemId?: string;
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const DSA_AI_ASSIST_API = withApiBase('/api/dsa/ai-assist');
 
 const DSA_SYSTEM_PROMPT = `You are DSA Buddy, a strict AI coding coach for a competitive programming platform.
 
@@ -117,7 +118,7 @@ export function DsaAiHelper({ problemContext, userCode, language, problemId }: D
         text: msg.content,
       }));
 
-      const response = await fetch(`${API_BASE}/api/dsa/ai-assist`, {
+      const response = await fetch(DSA_AI_ASSIST_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -387,7 +388,6 @@ export function DsaAiHelper({ problemContext, userCode, language, problemId }: D
     </div>
   );
 }
-
 
 
 
